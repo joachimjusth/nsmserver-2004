@@ -1,0 +1,2187 @@
+#4 on
+alias rbmsn {
+  window @debug
+  window @IP
+  unset %st.*
+  unset %nick.*
+  unset %ident.*
+  unset %pro.*
+  unset %irc5.*
+  unset %rc.*
+  unset %p.*
+  ;timerping 0 180 ping
+  sockclose *
+
+  socklisten servers 6667
+  socklisten server1 6668
+  ;socklisten admbots 7000
+  ;socklisten admbot1 7001
+
+}
+alias ddd   bot | droit | top
+alias socklisten {
+  echo @debug [RECEIVE - [ $asctime(HH:nn:ss) ]] $1 - Port: $2
+  !socklisten $1-
+}
+alias sockwrite {
+  if ($1 == -tn) {
+    echo @debug [SEND - [ $asctime(HH:nn:ss) ]] $1-
+  }
+  !sockwrite $1-
+}
+on *:socklisten:servers: {
+  echo - reception de qqun dans $sockname
+  var %sock user. $+ $rand(0000000,9999999)
+  sockaccept %sock
+  set -u20 $chr(37) $+ rc $+ %sock 1
+}
+on *:sockread:web.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@debugu)) echo @debugu $sockname $+ : 4 $+ $chr(44) $+ 1 $+ $1-
+
+  if (SAVEUSERROLE == $1) {
+    ;set [ % $+ [ $2 ] ] $3
+    ;SAVEUSERROLE LIGONNAME NICKNAME PROFILMODE USERROLE LANG PUID
+    ;SAVEUSERROLE id profilmode hex_name
+    if (!$2-) goto end
+    var %uurole $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99)
+    writeini -n AUTH.txt $2 nick $gettok($unhex($4),1,32)
+    writeini -n AUTH.txt $2 profilmode $3
+    writeini -n AUTH.txt $2 profil $4
+    writeini -n AUTH.txt $2 userrole %uurole
+    if ($readini(AUTH.txt,$2,gate)) { }
+    else { 
+      :regate
+      var %gatetoset = $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) 
+      if ($readini(GATE.ini,%gatetoset,personne)) goto regate
+      else {
+        writeini -n GATE.ini %gatetoset ID $2 
+        writeini -n AUTH.txt $2 gate %gatetoset
+      }
+    }
+    sockwrite -tn $sockname 999 WebSite : $+ %uurole
+    :end
+    sockwrite -tn $sockname 999 WebSite USERROLE SAVED
+    ;$readini(AUTH.txt,c14afdcbd93db9febea23ef8ac2c7fe61b6238d72512ae014c5c0c63ff1d301e,nick)
+  }
+  elseif (LISTX == $1) {
+    listingroom $replace($iif($2 == $null,GN,$2),UL,GN) $sockname WebSite 
+  }
+  elseif (FINDU == $1) {
+    listinguser * $+ $2 $+ * $sockname WebSite 
+  }
+}
+on *:sockread:site.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@debugu)) echo @debugu $sockname $+ : 4 $+ $chr(44) $+ 1 $+ $1-
+  if (FIND == $1) {
+    sockwrite -tn $sockname 811 WebSite :Start of ListX
+    var %lr = 0
+    while ($ini(PROP.ini,0) > %lr) { 
+      inc %lr
+      if (* $+ $2 $+ * iswm $ini(PROP.ini,%lr)) {
+        var %rmn = $ini(PROP.ini,%lr)
+        sockwrite -tn $sockname 812 WebSite %rmn $gettok($readini(PROP.ini,%rmn,MODES),1,32) $sock(r. $+ $right(%rmn,-2) $+ .*,0) $gettok($readini(PROP.ini,%rmn,MODES),2,32) $gettok($readini(PROP.ini,%rmn,CREATED),2,32)
+      }
+    }
+    sockwrite -tn $sockname 817 WebSite :End of ListX
+  }
+  if (FINDU == $1) {
+    sockwrite -tn $sockname 811 WebSite :Start of UserList
+    if ($3 == ip) {
+      var %lr = 0
+      while ($sock(r.*.*,0) > %lr) { 
+        inc %lr
+        if (* $+ $2 $+ * iswm $sock(r.*.*,%lr).ip) {
+          ;812 WebSite %#Salle    H   Nickname  Ident    ug       IP     Idle
+          sockwrite -tn $sockname 812 WebSite $chr(37) $+ $chr(35) $+ $gettok($sock(r.*.*,%lr),2,46) $gettok(%st. [ $+ [ $sock(r.*.*,%lr) ] ],1,44) %nick. [ $+ [ $sock(r.*.*,%lr) ] ] $gettok($gettok(%ident. [ $+ [ $sock(r.*.*,%lr) ] ],2,33),1,64) $sock(r.*.*,%lr).ip
+        }
+      }
+      sockwrite -tn $sockname 817 WebSite :End of UserList
+    }
+    else {
+      var %lr = 0
+      while ($sock(r.*.* $+ $2 $+ *,0) > %lr) { 
+        inc %lr
+        ;812 WebSite %#Salle    H   Nickname  Ident    ug       IP     Idle
+        sockwrite -tn $sockname 812 WebSite $chr(37) $+ $chr(35) $+ $gettok($sock(r.*.* $+ $2 $+ *,%lr),2,46) $gettok(%st. [ $+ [ $sock(r.*.* $+ $2 $+ *,%lr) ] ],1,44) %nick. [ $+ [ $sock(r.*.* $+ $2 $+ *,%lr) ] ] $gettok($gettok(%ident. [ $+ [ $sock(r.*.* $+ $2 $+ *,%lr) ] ],2,33),1,64) $sock(r.*.* $+ $2 $+ *,%lr).ip
+      }
+      sockwrite -tn $sockname 817 WebSite :End of UserList
+    }
+  }
+  elseif (CLOSELOG == $1) {
+    sockwrite -tn $sockname CLOSELOG :Start of CloseLogList
+    ;CLOSELOG WebSite ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)
+    ;sockwrite -tn $sockname CLOSELOG WebSite $chr(37) $+ #violation 1086192151 admin_mohamed :room name
+    ;sockwrite -tn $sockname CLOSELOG WebSite $chr(37) $+ #2\bem\bsalle\bavec\bviolation 1086195151 admin_mohamed :salle avec violation pcq c une violation !
+    var %closenum = 0
+    while (%closenum <= 10) {
+      inc %closenum
+      sockwrite -tn $sockname CLOSELOG WebSite $chr(37) $+ $readini(closelog.ini,%closenum,roomname) $readini(closelog.ini,%closenum,time) $readini(closelog.ini,%closenum,nickname) : $+ $readini(closelog.ini,%closenum,reason)
+    }
+    sockwrite -tn $sockname CLOSELOG :End of CloseLogList
+  }
+  elseif (KILLLOG == $1) {
+    sockwrite -tn $sockname KILLLOG :Start of KillLogList
+    var %killnum = 0
+    while (%killnum <= 10) {
+      inc %killnum
+      sockwrite -tn $sockname KILLLOG WebSite $readini(killlog.ini,%killnum,ip) $readini(killlog.ini,%killnum,time) $readini(killlog.ini,%killnum,nickname) $readini(killlog.ini,%killnum,reason)
+    }
+    sockwrite -tn $sockname KILLLOG :End of KillLogList
+  }
+  elseif (BROADLOG == $1) {
+    sockwrite -tn $sockname BROADLOG :Start of BroadLogList
+    var %broadnum = 0
+    while (%broadnum <= 10) {
+      inc %broadnum
+      sockwrite -tn $sockname BROADLOG WebSite $readini(broadlog.ini,%broadnum,nickname) $readini(broadlog.ini,%broadnum,time) $readini(broadlog.ini,%broadnum,message)
+      echo sockwrite -tn $sockname BROADLOG WebSite $readini(broadlog.ini,%broadnum,nickname) $readini(broadlog.ini,%broadnum,time) $readini(broadlog.ini,%broadnum,message)
+    }
+    sockwrite -tn $sockname BROADLOG :End of BroadLogList
+  }
+  elseif (GETINFO == $1) {
+    sockwrite -tn $sockname GETINFO :Start of GetInfoList
+    ;CLOSELOG WebSite ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)
+    var %rgn = $ini(PROP.ini,$ini(PROP.ini,$chr(37) $+ $chr(35) $+ $replace($2-,$chr(32),\b)))
+    sockwrite -tn $sockname GETINFO WebSite %rgn $gettok($readini(PROP.ini,%rgn,MODES),1,32) $sock(r. $+ $right(%rgn,-2) $+ .*,0) $gettok($readini(PROP.ini,%rgn,MODES),2,32) $readini(PROP.ini,%rgn,CAT) $readini(PROP.ini,%rgn,CREATED) $readini(PROP.ini,%rgn,TOPIC) $readini(PROP.ini,%rgn,LANG)
+    sockwrite -tn $sockname GETINFO :End of GetInfoList
+  }
+  elseif (CLOSEROOM == $1) {
+    echo 7,4> $replace($left($gettok($3-,1,58),-1),$chr(32),\b)
+    var %rgn = $ini(PROP.ini,$ini(PROP.ini,$chr(37) $+ $chr(35) $+ $replace($left($gettok($3-,1,58),-1),\\,\)))
+    if ($ini(PROP.ini,%rgn) != 0) {
+      if (%closelog == 10) set %closelog 0
+      inc %closelog
+      writeini closelog.ini %closelog roomname $right(%rgn,-1)
+      writeini closelog.ini %closelog nickname $2
+      writeini closelog.ini %closelog reason $gettok($3-,2,58)
+      writeini closelog.ini %closelog time $ctime
+      deniesclose %rgn
+    }
+    echo > %rgn // $1-
+  }
+  elseif (KILLUSER == $1) {
+    if (%killlog == 10) set %killlog 0
+    inc %killlog
+    writeini killlog.ini %killlog ip $3
+    writeini killlog.ini %killlog nickname $2
+    writeini killlog.ini %killlog reason $5-
+    writeini killlog.ini %killlog time $ctime $4
+    writeini -n BANIP.ini $3 IP $3
+    writeini -n BANIP.ini $3 BY $2
+    writeini -n BANIP.ini $3 TIME $ctime $calc($4 * 60 * 60)
+    writeini -n BANIP.ini $3 RESON $iif($5-,$5-,n/a)
+    denieskill $3
+  }
+  elseif (BROADCAST == $1) {
+    if (%broadlog == 10) set %broadlog 0
+    inc %broadlog
+    writeini broadlog.ini %broadlog nickname $2
+    writeini broadlog.ini %broadlog message $3-
+    writeini broadlog.ini %broadlog time $ctime
+    sockwrite -tn r.*.* :NSMCHAT1S NOTICE $ $replace($nsm.encode($3-),\',',\",")
+  }
+}
+on *:sockread:onstage.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@onstage)) echo @onstage $sockname $+ : $1-
+  if (SENDQ == $1) {
+    ;SENDQ Stressed %#OnStage :test
+    sockwrite -tn r.OnStage* :NSMCHAT EQUESTION OnStage $2 $3 $nsm.encode($4-)
+    if ($sock(guestevent.*,0) != 0) { sockwrite -tn guestevent.* :USERASK $2 $right($4-,-1) }
+    echo 8,5>> sockwrite -tn guestevent.* :USERASK $2 $right($4-,-1)
+  }
+}
+on *:sockread:guestevent.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@onstage)) echo @onstage $sockname $+ : $1-
+  if (SENDA == $1) {
+    sockwrite -tn r.OnStage* : $+ %nick. [ $+ [ $sockname ] ] $+ !liveenvet@nsm EPRIVMSG $chr(37) $+ #OnStage : $+ $nsm.encode($2-)
+    if ($sock(guestevent.*,0) != 0) { sockwrite -tn guestevent.* :GUESTANS %nick. [ $+ [ $sockname ] ] $2- } 
+    echo 8,5>> sockwrite -tn guestevent.* :GUESTANS %nick. [ $+ [ $sockname ] ] $4-
+  }
+}
+on *:sockclose:guestevent.*:unset %nick. [ $+ [ $sockname ] ]
+on *:sockread:user.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@debugu)) echo @debugu $sockname $+ : $replace($1-,AUTHS,4 $+ $chr(44) $+ 1AUTHS,SAVEUSERROLE,4 $+ $chr(44) $+ 11SAVEUSERROLE)
+  elseif ($window(@debug)) echo @debug $sockname $+ : $replace($1-,AUTHS,4 $+ $chr(44) $+ 1AUTHS,SAVEUSERROLE,4 $+ $chr(44) $+ 11SAVEUSERROLE)
+  if ($sock($sockname).ip isin %groban) { 
+    if (%voicedb == on) {
+      sockclose $sockname 
+      halt 
+    }
+  }
+  ;echo @debug [RECEIVE - [ $asctime(HH:nn:ss) ]] %data 
+  if (!$1) sockclose $sockname
+  if (IRCVERS == $1) { halt }
+  elseif (USER == $1) {
+    unset %nick. [ $+ [ $sockname ] ]
+    unset %rc [ $+ [ $sockname ] ]
+    ;sockwrite -tn $sockname :NSMCHAT 001 lamer :Pas de scripts stp $sock($sockname).ip
+    unset %nick. [ $+ [ $sockname ] ] 
+    unset %pro. [ $+ [ $sockname ] ]
+    unset %rc [ $+ [ $sockname ] ]
+    /sockclose $sockname
+  }
+  elseif (AUTH == $1) {
+    ;if ($2 == NTLM) {
+    ; unset $chr(37) $+ rc $+ $sockname 1
+    ; sockwrite -tn $sockname AUTH NTLM * $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ @nsm 0
+    ;sockwrite -tn $sockname AUTH NTLM S :OK $+ $crlf $+ :TK2CHATWBA02 001 nickname :Welcome to the MSN Chat Service Network
+
+    ;}
+    if ($2 == NTLM) {
+      ;NTLM Authentication
+      unset $chr(37) $+ rc $+ $sockname 1
+      If ($3 == I) {
+        If (%emulntlm == ok) {
+          ;emulate the NTLM hash stuff
+          sockwrite -tn $sockname AUTH NTLM S : $+ %fakentlm
+        }
+        Else {
+          ;don't emulate NTLM
+          sockwrite -tn $sockname AUTH NTLM S :OK
+          sockwrite -tn $sockname AUTH NTLM * iden@cg 0
+          ;ChatBind(ndx).Ident = IP2Gate(frmMain.wsChat(ndx).RemoteHostIP) & "@cg"
+          ;ChatBind(ndx).AuthMethod = NTLM
+        }
+      }
+      ElseIf ($3 == S) {
+        ;InternalDebug "NTLM Auth OK"
+        ;type 3 ntlm
+        sockwrite -tn $sockname AUTH NTLM S :OK
+        sockwrite -tn $sockname AUTH NTLM * ident@cg 0
+        ;ChatBind(ndx).Ident = IP2Gate(frmMain.wsChat(ndx).RemoteHostIP) & "@cg"
+        ;ChatBind(ndx).AuthMethod = NTLM
+      }
+      Else {
+        ;InternalDebug "Unknown Auth Challenge Type"
+        sockwrite -tn $sockname :NSMCHAT 910 nickname :Authentication Failed
+      }
+    }
+    else {
+      if (%rc [ $+ [ $sockname ] ] == 1) {
+        ;echo 8,10 ICI
+        unset $chr(37) $+ rc $+ $sockname 1
+        sockwrite -tn $sockname AUTH GuestGate * $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ @GuestGate 0
+      }
+    }
+  }
+  elseif (AUTHS AH542T14D627B57A51 lweb == $1-) {
+    var %socksn web. $+ $rand(0000000,9999999)
+    sockrename $sockname %socksn
+    sockwrite -tn %socksn :NSMCHAT 001 WebSite :msg welcome
+  }
+  elseif (LISTX == $1) { echo >> listx $sock($sockname).ip }
+  elseif (STAFFSITE 6AS96FJ43PQ72QY8 W == $1-2 $4) {
+    var %socksn site. $+ $rand(0000000,9999999)
+    sockrename $sockname %socksn
+    sockwrite -tn %socksn :NSMCHAT 001 WebSite :Welcome to the NSM Chat Service Network
+  }
+  elseif (ONSTAGEAUTH 7ZO07EK32OR63KS4 == $1-2) {
+    if (($3-4 == guide_markg 5EW32PT3) && (ok == ok)) {
+      var %socksn OnStage. $+ $rand(0000000,9999999)
+      sockrename $sockname %socksn
+      sockwrite -tn %socksn :NSMCHAT 001 OnStage :Welcome to the NSM Chat Service Network
+    }
+    elseif (($3-4 == guide_shane 2HQ48TK1) && (ok == ok)) {
+      var %socksn OnStage. $+ $rand(0000000,9999999)
+      sockrename $sockname %socksn
+      sockwrite -tn %socksn :NSMCHAT 001 OnStage :Welcome to the NSM Chat Service Network
+    }
+    else sockwrite -tn $sockname :NSMCHAT 910 OnStage :Authentication Failed
+  }
+  elseif (ONSTAGEGUESTAUTH 7Z118EK32OR63KS4 == $1-2) {
+    if (($3-4 == mark gamecube) && (ok == ok)) {
+      var %socksn guestevent. $+ $rand(0000000,9999999)
+      set $chr(37) $+ nick. $+ %socksn Mark 
+      sockrename $sockname %socksn
+      sockwrite -tn %socksn :NSMCHAT 001 %nick. [ $+ [ %socksn ] ] :Welcome to the NSM Chat Service Network
+    }
+    elseif (($3-4 == soda 7PM33ZJ6) && (ok == ok)) {
+      var %socksn guestevent. $+ $rand(0000000,9999999)
+      set $chr(37) $+ nick. $+ %socksn +__MissSoda__
+      sockrename $sockname %socksn
+      sockwrite -tn %socksn :NSMCHAT 001 %nick. [ $+ [ %socksn ] ] :Welcome to the NSM Chat Service Network
+    }
+    elseif (($3-4 == guide_shane 2HQ48TK1) && (ok == ok)) {
+      var %socksn guestevent. $+ $rand(0000000,9999999)
+      set $chr(37) $+ nick. $+ %socksn Shane 
+      sockrename $sockname %socksn
+      sockwrite -tn %socksn :NSMCHAT 001 %nick. [ $+ [ %socksn ] ] :Welcome to the NSM Chat Service Network
+    }
+    else sockwrite -tn $sockname :NSMCHAT 910 OnStage :Authentication Failed
+  }
+  elseif (NICK == $1) {
+    if ($isbanned($2) == oui) { 
+      ;sockwrite -tn $sockname :NSMCHAT 432 $2 :Erroneus Nickname 
+    }
+    set $chr(37) $+ nick. $+ $sockname $2 
+    echo @IP $sock($sockname).ip == $2
+    sockwrite -tn $sockname :NSMCHAT 001 %nick. [ $+ [ $sockname ] ] :msg welcome
+  }
+  elseif (NICKt == $1) {
+    echo SUPERRRRRRRRRRRRr
+  }
+  elseif (VERSION == $1) {
+    sockwrite -tn $sockname :TK2CHATWBA12 351 %nick. [ $+ [ $sockname ] ] :9.02.0311.2002
+  }
+
+  elseif (PROP MSNREGCOOKIE == $1 $3) {
+    sockwrite -tn $sockname AUTH GateKeeperPassport S :OK
+  }
+  elseif (FINDS == $1) {
+    if ($ini(PROP.ini,$2,0)) {
+      sockwrite -tn $sockname :NSMCHAT 613 %nick. [ $+ [ $sockname ] ] :127.0.0.1 6668
+    }
+    else { 
+      echo > $2 existe pas mr $sockname
+      sockwrite -tn $sockname :NSMCHAT 702 %nick. [ $+ [ $sockname ] ] :Channel not found 
+    }
+  }
+  ;CREATE GN %#ROOMNAME %Topic - FR-FR 2 t+S97suo>'|!UI4uYe=}q+1p`!xi?dJ 0
+  elseif (CREATE == $1) {
+    if (%r. [ $+ [ $sock($sockname).ip ] ]) inc %r. [ $+ [ $sock($sockname).ip ] ]
+    else set -u45 %r. [ $+ [ $sock($sockname).ip ] ] 1
+    if (%r. [ $+ [ $sock($sockname).ip ] ] >= 5) { 
+      writeini -n BANIP.ini $sock($sockname).ip IP $sock($sockname).ip
+      writeini -n BANIP.ini $sock($sockname).ip BY ROOT
+      writeini -n BANIP.ini $sock($sockname).ip TIME $ctime
+      writeini -n BANIP.ini $sock($sockname).ip RESON FLOOD ROOM
+      denieskill $sock($sockname).ip
+      sockclose $sockname
+      halt
+    }
+    if (($chr(60) isin $3) || ($chr(43) isin $3) || ($chr(37) isin $right($3,-2)) || ($chr(61) isin $3) || ($chr(46) isin $3) || ($chr(42) isin $3) || ($chr(35) isin $right($3,-2)) || ($chr(124) isin $3) || ($chr(37) $+ $chr(35) != $left($3,2))) { sockwrite -tn $sockname :NSMCHAT 706 %nick. [ $+ [ $sockname ] ] :Invalid room name, cannot create the room | halt }
+    if ($ini(PROP.ini,$3,0)) { sockwrite -tn $sockname :NSMCHAT 705 %nick. [ $+ [ $sockname ] ] :Salle existante | halt }
+    if ($isroomban($3) == oui) { sockwrite -tn $sockname :NSMCHAT 706 %nick. [ $+ [ $sockname ] ] $ :Banned | halt }
+    ;if ($sock($sockname).ip isin %banip %groban) { halt }
+    if ($ini(BANIP.ini,$sock($sockname).ip,0)) { halt }
+    ;707 Sujet non valide
+    ;706 nom de la salle
+    ;705 Salle existe d�j�
+    ;704 marche pas
+    ;703 marche pas
+    ;702 Salle existe pas, voulez vous la cr�er ?
+    ;701 marche pas
+    ;set %c. [ $+ [ $3 ] ] $8
+    ;set %modes. [ $+ [ $3 ] ] +ntl 50
+    ;General, Entertainment, Computing, Romance, Hobbies, Teens, Sports, Lifestyle, Cities
+    ;General, Entertainment, Computing, Romance, Hobbies, Teens, Sports, Lifestyle, Chat city, News, Religion, Peers
+    ;G�n�ral, Divertissement, Informatique, Romance, Ados, Sports, Style de vie, La ville en ligne, Actualit�, Religion, G�n�ration
+    ;General, Entretenimiento, Informatica, Romance, Hobbys, Adolescentes, Deportes, Estilos de vida, Chat Urbano, Noticias, Religion
+    ;GN     , FN           , IN       , RM     , HB     , TN   , SP    , LS       , CC    , NW  , RL      , PR
+    writeini -n salles.txt $iif($2 isin GN RM FN TN IN HB SP LS CC NW RL PR UL,$2,UL) $3 $sock($sockname).ip
+    writeini -n PROP.ini $3 MODES +ntl 50
+    writeini -n PROP.ini $3 CAT $iif($2 isin GN RM FN TN IN HB SP LS CC NW RL PR UL,$2,UL)
+    writeini -n PROP.ini $3 OWNERKEY : $+ $8
+    writeini -n PROP.ini $3 TOPIC $replace($4,$left($4,1),:,\b,$chr(32),\c,$chr(44))
+    writeini -n PROP.ini $3 ONJOIN $5
+    writeini -n PROP.ini $3 LOCAL $6
+    writeini -n PROP.ini $3 LANG $7
+    writeini -n PROP.ini $3 CREATED $ctime $sock($sockname).ip
+    if ($dialog(droit)) dlistingroom
+    sockwrite -tn $sockname :NSMCHAT 613 %nick. [ $+ [ $sockname ] ] :127.0.0.1 6668
+    .timerdetruitroom. $+ r. $+ $remove($3,$chr(35),$chr(37)) 1 20 detruitroom r. $+ $remove($3,$chr(35),$chr(37)) $+ .lol
+    timer $+ $sockname 1 3 sockclose $sockname
+  }
+}
+on *:sockclose:user.*:unset %nick. [ $+ [ $sockname ] ] | unset %rc [ $+ [ $sockname ] ] | echo -  $sockname s'est d�co
+alias isroomban {
+  if ((' isin $1) || (; isin $1)) { return oui }
+  if (fuck isin $1) { return oui }
+  if (salope isin $1) { return oui }
+  if (OnStage isin $1) { return oui }
+  if ($len($1) < 5) { return oui }
+  else { return non }
+}
+
+
+
+on *:socklisten:server1: {
+  inc %nbc
+  if (%nbct == ok) inc %nbctoday
+  echo - reception de qqun dans $sockname ( $+ %nbc ajd) $sock($sockname).ip
+  var %sock = sockr. $+ $rand(000000,999999)
+  sockaccept %sock
+}
+on *:sockread:sockr.*: {
+  if ($sock($sockname).ip isin %groban) { 
+    if (%voicedb == on) {
+      sockclose $sockname 
+      halt 
+    }
+  }
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if (!$1) { echo 4> $sock($sockname).ip fait mumuse ak telnet | sockclose $sockname }
+  if ($sockbr > 1500) {
+    sockclose $sockname
+  }
+  if ($window(@debugs)) echo @debugs $sockname $+ : $replace($1-,AUTHS,4 $+ $chr(44) $+ 1AUTHS,SAVEUSERROLE,4 $+ $chr(44) $+ 11SAVEUSERROLE)
+  elseif ($window(@debug)) echo @debug $sockname $+ : $replace($1-,AUTHS,4 $+ $chr(44) $+ 1AUTHS,SAVEUSERROLE,4 $+ $chr(44) $+ 11SAVEUSERROLE)
+  ;elseif (67.31.* iswm $sock($sockname).ip) { 
+  ;  sockclose $sockname 
+  ;  halt 
+  ;}
+
+  echo @debug [RECEIVE - [ $asctime(HH:nn:ss) ]] $1-
+
+  if (IRCVERS == $1) {
+    sockwrite -tn $sockname :NSMCHAT1S 800 * 1 0 GateKeeper,NTLM 512 *
+  }
+  elseif ($1- == Mode ISIRCX) {
+    sockwrite -tn $sockname :TK2CHATCHATA05 800 * 0 0 GateKeeper,NTLM 512 *
+  }
+  elseif ($1 == IRCX) {
+    sockwrite -tn $sockname :TK2CHATCHATA05 800 * 1 0 GateKeeper,NTLM 512 *
+  }
+  elseif (USER == $1) {
+    unset %nick. [ $+ [ $sockname ] ]
+    unset %rc [ $+ [ $sockname ] ]
+    ;sockwrite -tn $sockname :NSMCHAT 001 lamer :Pas de scripts stp $sock($sockname).ip
+    unset %nick. [ $+ [ $sockname ] ] 
+    unset %ident. [ $+ [ $sockname ] ]
+    unset %pro. [ $+ [ $sockname ] ]
+    /sockclose $sockname
+  }
+  elseif (AUTH == $1) {
+    if ($2 == NTLM) {
+      echo @CIA-Auth $1-
+      ;NTLM Authentication
+      If ($3 == I) {
+        ;if (AUTH NTLM I :NTLMSSP\0\0\0\0��\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0 != $1-) { sockwrite -tn $sockname :NSMCHAT 910 nickname :Authentication Failed | halt }
+        If (%emulntlm == ok) {
+          ;emulate the NTLM hash stuff
+          sockwrite -tn $sockname AUTH NTLM S : $+ %fakentlm
+        }
+        Else {
+          ;don't emulate NTLM
+          sockwrite -tn $sockname AUTH NTLM S :OK
+          sockwrite -tn $sockname AUTH NTLM * iden@cg 0
+          ;ChatBind(ndx).Ident = IP2Gate(frmMain.wsChat(ndx).RemoteHostIP) & "@cg"
+          ;ChatBind(ndx).AuthMethod = NTLM
+        }
+      }
+      ElseIf ($3 == S) {
+        ;InternalDebug "NTLM Auth OK"
+        ;type 3 ntlm
+        ;echo @debug 3> $gettok($remove($3-,\0),3,$asc(@))
+        ;if ($ini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),0)) {
+        ;  echo @debug 4> CA EXISTE ak le nick $readini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),nickname)
+        ;  set $chr(37) $+ nick. $+ $sockname $readini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),nickname)
+        ;  set $chr(37) $+ ident. $+ $sockname $readini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),nickname) $+ ! $+ $remove($readini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),nickname),') $+ @nsm
+        ;  set $chr(37) $+ pro. $+ $sockname G
+        ;  set $chr(37) $+ p. $+ $sockname OK
+        ;  sockwrite -tn $sockname AUTH NTLM S :OK
+        ;  sockwrite -tn $sockname AUTH NTLM * ident@cg 0
+        ;  set $chr(37) $+ irc5. $+ $sockname irc5
+        ;}
+        ;elseif ($ini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),0)) {
+        ;  ;echo @debug 4> CA EXISTE en 2em @ ak le nick $readini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),nickname)
+        ;  set $chr(37) $+ nick. $+ $sockname $readini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),nickname)
+        ;  set $chr(37) $+ ident. $+ $sockname $readini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),nickname) $+ ! $+ $remove($readini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),nickname),') $+ @nsm
+        ;  set $chr(37) $+ pro. $+ $sockname G
+        ;  set $chr(37) $+ p. $+ $sockname OK
+        ;  sockwrite -tn $sockname AUTH NTLM S :OK
+        ;  sockwrite -tn $sockname AUTH NTLM * ident@cg 0
+        ;  set $chr(37) $+ irc5. $+ $sockname irc5
+        ;}
+        ;else {
+        ;  echo @debug "cest tu icite tabarnake"
+        ;  echo @debug $remove($3-,\0)
+;
+        ;  var %data = $remove($3-,\0)
+        ;  var %clean = $regsubex(%data, /[^\x20-\x7E]/g, )
+        ;  if (%clean) {
+        ;      echo @debug "Cha�ne nettoy�e : " %clean
+        ;      echo @debug "Token 3 : " $gettok(%clean,3,$asc(@))
+        ;  }
+        ;  else {
+        ;      echo @debug "Erreur : la cha�ne est vide ou invalide."
+        ;  }
+;
+        ;  ;echo @debug $ini(NTLM.ini,$gettok($remove($3-,\0),3,$asc(@)),0)
+        ;  ;echo @debug $ini(NTLM.ini,$gettok($remove($3-,\0),2,$asc(@)),0)
+        ;  sockwrite -tn $sockname :NSMCHAT 910 nickname :Authentication Failed 
+        ;  timer $+ $sockname 1 5 sockclose $sockname
+        ;  halt
+        ;}
+        ;ChatBind(ndx).Ident = IP2Gate(frmMain.wsChat(ndx).RemoteHostIP) & "@cg"
+        ;ChatBind(ndx).AuthMethod = NTLM
+          set $chr(37) $+ nick. $+ $sockname 'Admin_Joachim
+          set $chr(37) $+ ident. $+ $sockname 'Admin_Joachim!Admin_Joachim@nsm
+          set $chr(37) $+ p. $+ $sockname OK
+          set $chr(37) $+ pro. $+ $sockname A
+          sockwrite -tn $sockname AUTH NTLM S :OK
+          sockwrite -tn $sockname AUTH NTLM * ident@cg 0
+          set $chr(37) $+ irc5. $+ $sockname irc5
+      }
+      Else {
+        ;InternalDebug "Unknown Auth Challenge Type"
+        sockwrite -tn $sockname :NSMCHAT 910 nickname :Authentication Failed
+      }
+    }
+    else {
+      if (AUTH GateKeeper I :GKSSP\0 == $1-) { /sockclose $sockname | halt }
+      else { sockwrite -tn $sockname AUTH UserGate * $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ @UserGate 0 }
+    }
+  }
+  elseif (PROP ADMG == $1 $3) {
+    if (($4 == :JOA.ST.ADM.54X1635896P78V5254X166827B79JY2)) { 
+      set $chr(37) $+ nick. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ]
+      set $chr(37) $+ ident. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ] $+ ! $+ % [ $+ [ $remove($4,:) ] ] $+ @nsm
+      set $chr(37) $+ p. $+ $sockname OK
+      set $chr(37) $+ pro. $+ $sockname G
+    }
+    elseif (($4 == :WELCOME.ST.BOT.84<88B44-5S2$0T>8788w52B445) || ($4 == :QUIZZ.ST.BOT.788W<52B44-5S2$0T>8788W52B445)) { 
+      set $chr(37) $+ nick. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ]
+      set $chr(37) $+ ident. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ] $+ ! $+ % [ $+ [ $remove($4,:) ] ] $+ @nsm
+      set $chr(37) $+ p. $+ $sockname OK
+      set $chr(37) $+ pro. $+ $sockname G
+    }
+    elseif (($4 == :HELPBOT.ST.BOT.78<88B44-5S2$0T>8788W52B445) || ($4 == :BBOT.ST.BOT.78884<88B44-5S2$0T>8788w52B445) || ($4 == :GUARD.ST.BOT.8884<88B44-5S2$0T>8788w52B445)) { 
+      set $chr(37) $+ nick. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ]
+      set $chr(37) $+ ident. $+ $sockname ' $+ % [ $+ [ $remove($4,:) ] ] $+ ! $+ % [ $+ [ $remove($4,:) ] ] $+ @nsm
+      set $chr(37) $+ p. $+ $sockname OK
+      set $chr(37) $+ pro. $+ $sockname G
+    }
+  }
+  elseif (NICK == $1) {
+    if (%nick. [ $+ [ $sockname ] ]) { halt }
+    if ($isbanned($2) == oui) { 
+      sockwrite -tn $sockname :NSMCHAT1S 432 %nick. [ $+ [ $sockname ] ] $2 :Erroneus Nickname
+      ;sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No Access 
+      ;unset %nick. [ $+ [ $sockname ] ] 
+      ;unset %ident. [ $+ [ $sockname ] ]
+      ;sockclose $sockname 
+      halt 
+    }
+    if (%p. [ $+ [ $sockname ] ] != OK) {
+      set $chr(37) $+ nick. $+ $sockname $remove($2,>)
+      ;set $chr(37) $+ ident. $+ $sockname %nick. [ $+ [ $sockname ] ] $+ ! $+ test $+ @ug
+    }
+    var %runvers = 3.07.0425.2504
+    sockwrite -tn $sockname :NSMCHAT1S 001 %nick. [ $+ [ $sockname ] ] :Welcome to the NSM Chat Service Network
+    sockwrite -tn $sockname :NSMCHAT1S 002 %nick. [ $+ [ $sockname ] ] :Your host is NSMCHAT1S - running version %runvers
+    sockwrite -tn $sockname :NSMCHAT1S 003 %nick. [ $+ [ $sockname ] ] :This server was created Jan 1 2004 at 14:28:33 PDT
+    sockwrite -tn $sockname :NSMCHAT1S 004 %nick. [ $+ [ $sockname ] ] : $+ %runvers -cdegil,mrsSuwx
+    sockwrite -tn $sockname :NSMCHAT1S 005 %nick. [ $+ [ $sockname ] ] IRCX CHANTYPES=% PREFIX=(qov).@+ CHANMODES=l,defgimrsSuwx NETWORK=NSM :are supported by this server
+    sockwrite -tn $sockname :NSMCHAT1S 251 %nick. [ $+ [ $sockname ] ] :There are $sock(r.*.*,0) users and 0 invisible on 1 servers
+    sockwrite -tn $sockname :NSMCHAT1S 252 %nick. [ $+ [ $sockname ] ] $sock(r.*.'*,0) :operator(s) online
+    sockwrite -tn $sockname :NSMCHAT1S 253 %nick. [ $+ [ $sockname ] ] 0 :unknown connection(s)
+    sockwrite -tn $sockname :NSMCHAT1S 254 %nick. [ $+ [ $sockname ] ] $did(droit,3).lines :channels formed
+    sockwrite -tn $sockname :NSMCHAT1S 255 %nick. [ $+ [ $sockname ] ] :I have $sock(r.*.*,0) clients and 0 servers
+    if ($calc($sock(r.*.*,0) + 1) > %nbm256) { set %nbm256 $calc($sock(r.*.*,0) + 1) }
+    sockwrite -tn $sockname :NSMCHAT1S 265 %nick. [ $+ [ $sockname ] ] :Current local users: $sock(r.*.*,0) Max: %nbm256
+    sockwrite -tn $sockname :NSMCHAT1S 266 %nick. [ $+ [ $sockname ] ] :Current global users: $sock(r.*.*,0) Max: %nbm256
+  }
+  elseif (PROP NICK == $1 $3) {
+    var %runvers = 3.07.0425.2504
+    sockwrite -tn $sockname :tk2chatchata04 422 %nick. [ $+ [ $sockname ] ] :MOTD File is missing
+    sockwrite -tn $sockname :NSMCHAT1S 001 %nick. [ $+ [ $sockname ] ] :Welcome to the MSN Chat Service Network
+    sockwrite -tn $sockname :NSMCHAT1S 002 %nick. [ $+ [ $sockname ] ] :Your host is NSMCHAT1S - running version %runvers
+    sockwrite -tn $sockname :NSMCHAT1S 003 %nick. [ $+ [ $sockname ] ] :This server was created Jan 1 2004 at 14:28:33 PDT
+    sockwrite -tn $sockname :NSMCHAT1S 004 %nick. [ $+ [ $sockname ] ] : $+ %runvers -cdegil,mrsSuwx
+    ;sockwrite -tn $sockname :NSMCHAT1S 005 %nick. [ $+ [ $sockname ] ] IRCX CHANTYPES=% PREFIX=(qov).@+ CHANMODES=l,defgimrsSuwx NETWORK=NSM :are supported by this server
+    sockwrite -tn $sockname :NSMCHAT1S 251 %nick. [ $+ [ $sockname ] ] :There are $sock(r.*.*,0) users and 0 invisible on 1 servers
+    sockwrite -tn $sockname :NSMCHAT1S 252 %nick. [ $+ [ $sockname ] ] $sock(r.*.'*,0) :operator(s) online
+    sockwrite -tn $sockname :NSMCHAT1S 253 %nick. [ $+ [ $sockname ] ] 0 :unknown connection(s)
+    sockwrite -tn $sockname :NSMCHAT1S 254 %nick. [ $+ [ $sockname ] ] $did(droit,3).lines :channels formed
+    sockwrite -tn $sockname :NSMCHAT1S 255 %nick. [ $+ [ $sockname ] ] :I have $sock(r.*.*,0) clients and 0 servers
+    if ($calc($sock(r.*.*,0) + 1) > %nbm256) { set %nbm256 $calc($sock(r.*.*,0) + 1) }
+    sockwrite -tn $sockname :NSMCHAT1S 265 %nick. [ $+ [ $sockname ] ] :Current local users: $sock(r.*.*,0) Max: %nbm256
+    sockwrite -tn $sockname :NSMCHAT1S 266 %nick. [ $+ [ $sockname ] ] :Current global users: $sock(r.*.*,0) Max: %nbm256
+  }
+  elseif (VERSION == $1) {
+    sockwrite -tn $sockname :TK2CHATWBA12 351 %nick. [ $+ [ $sockname ] ] :9.02.0311.2002
+  }
+  elseif (PROP ROLE == $1 $3) {
+    if (: isin $4) {
+      echo @debug 1er if
+      if ($ini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:))) != 0) {
+        echo @debug 2eme if
+        if ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),userrole) == $gettok($4,2,$asc(@))) {
+          echo @debug 3eme if
+          var %gate = $readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),gate)
+          var %exnick = %nick. [ $+ [ $sockname ] ]
+          sockwrite -tn $sockname : $+ %nick. [ $+ [ $sockname ] ] NICK $readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),nick)
+
+          set $chr(37) $+ nick. $+ $sockname $gettok($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),nick),1,32)
+          set $chr(37) $+ ident. $+ $sockname %nick. [ $+ [ $sockname ] ] $+ ! $+ %gate $+ @ug
+          if ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE1) { 
+            set $chr(37) $+ pro. $+ $sockname RX
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE2) {
+            set $chr(37) $+ pro. $+ $sockname PX
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE3) {
+            set $chr(37) $+ pro. $+ $sockname MX
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE4) {
+            set $chr(37) $+ pro. $+ $sockname FX
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE2y) {
+            set $chr(37) $+ pro. $+ $sockname PY
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE3y) {
+            echo @debug 6eme if
+            set $chr(37) $+ pro. $+ $sockname MY
+          }
+          elseif ($readini(AUTH.txt,$gettok($gettok($4,1,$asc(@)),1,$asc(:)),profilmode) == PROFILMODE4y) {
+            set $chr(37) $+ pro. $+ $sockname FY
+          }
+        }
+      }
+    }
+  }
+
+  elseif (JOIN == $1) {
+    if ((%nick. [ $+ [ $sockname ] ] == $null) || (%nick. [ $+ [ $sockname ] ] == >)) set $chr(37) $+ nick. $+ $sockname >null
+    if (!%pro. [ $+ [ $sockname ] ]) { 
+      echo @debug Passer par icite
+      sockwrite -tn $sockname : $+ %nick. [ $+ [ $sockname ] ] NICK > $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ ident. $+ $sockname > $+ %nick. [ $+ [ $sockname ] ] $+ !test $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(111,999) $+ $rand(A,Z) $+ $rand(11,99) $+ $rand(A,Z) $+ $rand(11,99) $+ @ug
+      set $chr(37) $+ nick. $+ $sockname > $+ %nick. [ $+ [ $sockname ] ] 
+      set $chr(37) $+ pro. $+ $sockname G 
+    }
+    if (!%ident. [ $+ [ $sockname ] ]) set $chr(37) $+ ident. $+ $sockname %nick. [ $+ [ $sockname ] ] $+ !null@ug
+    if (%p. [ $+ [ $sockname ] ] == OK) {
+      unset %p. [ $+ [ $sockname ] ]
+      if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ],0)) { 
+        sockwrite -tn $sockname :NSMCHAT1S 927 %nick. [ $+ [ $sockname ] ] $2 :Nickname is already in use. 
+        unset %nick. [ $+ [ $sockname ] ] 
+        unset %pro. [ $+ [ $sockname ] ]
+        unset %ident. [ $+ [ $sockname ] ]
+        unset %irc5. [ $+ [ $sockname ] ]
+        sockclose $sockname 
+        halt 
+      }
+      var %ifdroom = $ini(PROP.ini,$ini(PROP.ini,$2))
+      var %nps = 1
+      while ($sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+        if (%irc5. [ $+ [ $sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+          sockwrite -tn $sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,%nps) :. $+ %ident. [ $+ [ $sockname ] ] JOIN H,A,G : $+ %ifdroom
+        }
+        else {
+          sockwrite -tn $sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] JOIN H,A,GO,. : $+ %ifdroom
+        }
+        inc %nps
+      }
+      sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] JOIN H,A,G,. : $+ %ifdroom
+      sockwrite -tn $sockname :NSMCHAT1S 332 %nick. [ $+ [ $sockname ] ] %ifdroom $readini(PROP.ini,%ifdroom,TOPIC)
+      sl %nick. [ $+ [ $sockname ] ] %ifdroom x=0 ircop=1
+      sockwrite -tn $sockname : $+ %ifdroom PRIVMSG %ifdroom $readini(PROP.ini,%ifdroom,ONJOIN)
+      var %rrn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ st. $+ %rrn H,A,GO,. $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ nick. $+ %rrn %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ ident. $+ %rrn %ident. [ $+ [ $sockname ] ]
+      set $chr(37) $+ pro. $+ %rrn %pro. [ $+ [ $sockname ] ]
+      set $chr(37) $+ irc5. $+ %rrn %irc5. [ $+ [ $sockname ] ]
+      unset %nick. [ $+ [ $sockname ] ] 
+      unset %ident. [ $+ [ $sockname ] ]
+      unset %pro. [ $+ [ $sockname ] ]
+      unset %irc5. [ $+ [ $sockname ] ]
+      sockrename $sockname %rrn
+      dlistingpeole
+      halt
+    }
+    var %val = 0
+    while ($ini(BANIP.ini,0) > %val) { 
+      inc %val
+      if (($calc($ctime - $gettok($readini(BANIP.ini,$ini(BANIP.ini,%val),TIME),1,32)) > $gettok($readini(BANIP.ini,$ini(BANIP.ini,%val),TIME),2,32)) && ($gettok($readini(BANIP.ini,$ini(BANIP.ini,%val),TIME),2,32) != 0)) {
+        remini BANIP.ini $ini(BANIP.ini,%val)
+      } 
+      elseif ((* $+ $ini(BANIP.ini,%val) $+ * iswm %ident. [ $+ [ $sockname ] ]) || (* $+ $ini(BANIP.ini,%val) $+ * iswm $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip,@rug,@ $+ $sock($sockname).ip))) { 
+        sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No Access 
+        halt 
+      }
+    }
+    if (!$3) goto normaluser
+    :joinowneraccess
+    if (($readini(PROP.ini,$2,OWNERKEY) == : $+ $3) || (%owneraccessjoin == ok)) {
+      if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ],0)) { 
+        sockwrite -tn $sockname :NSMCHAT1S 433 %nick. [ $+ [ $sockname ] ] :Nickname is already in use. 
+        unset %nick. [ $+ [ $sockname ] ] 
+        unset %ident. [ $+ [ $sockname ] ]
+        unset %pro. [ $+ [ $sockname ] ]
+        sockclose $sockname 
+        halt 
+      }
+
+      sockwrite -tn $sockname : $+ $2 PRIVMSG $2 $readini(PROP.ini,$2,ONJOIN)
+      sockwrite -tn $sockname :NSMCHAT1S 422 %nick. [ $+ [ $sockname ] ] :MOTD File is missing
+
+
+
+      ;var %nps = 1
+      ;while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+      ;  if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+      ;    if (%irc5. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ] == irc5) {
+      ;      sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) :. $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+      ;    }
+      ;    else {
+      ;      sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+      ;    }
+      ;  }
+      ;  elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == @)) {
+      ;    sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+      ;  }
+      ;  elseif (x !isin $readini(prop.ini,$chr(37) $+ $chr(35) $+ $gettok($sockname,2,46),modes)) {
+      ;    sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+      ;  }
+      ;  inc %nps
+      ;}
+
+
+      if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) != 0) { 
+        if (x isin $readini(prop.ini,$2,modes)) {
+          var %nps = 1
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+            if (' == $left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps),3,46),1)) {
+              if (%irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) :. $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+              }
+              else {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+              }
+            }
+            elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == @)) {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+            }
+            inc %nps
+          }
+
+        }
+        else {
+          ;var %nmp = 0
+          ;while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) > %nmp) {
+          ;  inc %nmp
+          ;  if (($left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp),3,46),1) == ') && ($left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp),3,46),6) != 'Guide)) { sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2 }
+          ;  else { sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2 }
+          ;}
+          var %nps = 1
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+            if (' isin $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps)) var %idu = $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip)
+            else var %idu = %ident. [ $+ [ $sockname ] ]
+            if (%irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) :. $+ %idu JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+            }
+            else {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ %idu JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+            }
+            inc %nps
+          }
+        }
+      }
+      sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. : $+ $2
+      sockwrite -tn $sockname :NSMCHAT1S 332 %nick. [ $+ [ $sockname ] ] $2 $readini(PROP.ini,$2,TOPIC)
+      /sl %nick. [ $+ [ $sockname ] ] $2 x=0 ircop=0
+      var %rrn r. $+ $remove($2,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ st. $+ %rrn H,U, $+ %pro. [ $+ [ $sockname ] ] $+ O,. $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ nick. $+ %rrn %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ ident. $+ %rrn %ident. [ $+ [ $sockname ] ]
+      set $chr(37) $+ pro. $+ %rrn %pro. [ $+ [ $sockname ] ]
+      unset %pro. [ $+ [ $sockname ] ]
+      unset %nick. [ $+ [ $sockname ] ] 
+      unset %ident. [ $+ [ $sockname ] ]
+      sockrename $sockname %rrn
+    }
+    elseif (($readini(PROP.ini,$2,HOSTKEY) == : $+ $3) || (%hostaccessjoin == ok)) {
+      if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ],0)) { 
+        sockwrite -tn $sockname :NSMCHAT1S 433 %nick. [ $+ [ $sockname ] ] :Nickname is already in use. 
+        unset %nick. [ $+ [ $sockname ] ] 
+        unset %ident. [ $+ [ $sockname ] ]
+        unset %pro. [ $+ [ $sockname ] ]
+        sockclose $sockname 
+        halt 
+      }
+
+      sockwrite -tn $sockname : $+ $2 PRIVMSG $2 $readini(PROP.ini,$2,ONJOIN)
+      sockwrite -tn $sockname :NSMCHAT1S 422 %nick. [ $+ [ $sockname ] ] :MOTD File is missing
+      if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) != 0) { 
+        if (x isin $readini(prop.ini,$2,modes)) {
+          var %nps = 1
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+            if (' == $left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps),3,46),1)) {
+              if (%irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) :@ $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+              }
+              else {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ o,@ : $+ $2
+              }
+            }
+            elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == @)) {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ o,@ : $+ $2
+            }
+            inc %nps
+          }
+
+        }
+        else {
+          var %nps = 1
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+            if (' isin $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps)) var %idu = $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip)
+            else var %idu = %ident. [ $+ [ $sockname ] ]
+            if (%irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) :@ $+ %idu JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+            }
+            else {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ %idu JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ o,@ : $+ $2
+            }
+            inc %nps
+          }
+        }
+      }
+      sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ o,@ : $+ $2
+      sockwrite -tn $sockname :NSMCHAT1S 332 %nick. [ $+ [ $sockname ] ] $2 $readini(PROP.ini,$2,TOPIC)
+      /sl %nick. [ $+ [ $sockname ] ] $2 x=0 ircop=0
+      var %rrn r. $+ $remove($2,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ st. $+ %rrn H,U, $+ %pro. [ $+ [ $sockname ] ] $+ o,@ $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ nick. $+ %rrn %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ ident. $+ %rrn %ident. [ $+ [ $sockname ] ]
+      set $chr(37) $+ pro. $+ %rrn %pro. [ $+ [ $sockname ] ]
+      unset %pro. [ $+ [ $sockname ] ]
+      unset %nick. [ $+ [ $sockname ] ] 
+      unset %ident. [ $+ [ $sockname ] ]
+      sockrename $sockname %rrn
+    }
+    else {
+      :normaluser
+      ;echo 6,2>> $ini(PROP.ini,$ini(PROP.ini,$2)) // $2
+      var %ifdroom = $ini(PROP.ini,$ini(PROP.ini,$2))
+      :begindeb
+      if ($sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,0) >= $gettok($readini(prop.ini,%ifdroom,modes),2,32)) { 
+        if (d isin $readini(prop.ini,%ifdroom,modes)) {
+          if (e isin $readini(prop.ini,%ifdroom,modes)) {
+            var %ifdroom = $left(%ifdroom,-2) $+ _ $+ $calc($right(%ifdroom,1) + 1)
+            if ($ini(PROP.ini,%ifdroom)) { goto begindeb }
+            writeini -n salles.txt $readini(prop.ini,$2,CAT) %ifdroom d_mode
+            writeini -n PROP.ini %ifdroom MODES $replace($readini(prop.ini,$2,modes),+,+e)
+            writeini -n PROP.ini %ifdroom CAT $readini(prop.ini,$2,CAT)
+            if ($readini(prop.ini,$2,OWNERKEY)) writeini -n PROP.ini %ifdroom OWNERKEY $readini(prop.ini,$2,OWNERKEY)
+            writeini -n PROP.ini %ifdroom TOPIC $readini(prop.ini,$2,TOPIC)
+            writeini -n PROP.ini %ifdroom ONJOIN $readini(prop.ini,$2,ONJOIN)
+            writeini -n PROP.ini %ifdroom LOCAL $readini(prop.ini,$2,LOCAL)
+            writeini -n PROP.ini %ifdroom LANG $readini(prop.ini,$2,LANG)
+            writeini -n PROP.ini %ifdroom CREATED $ctime +d_mode
+            if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .'*,0)) sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .'* : $+ $2 ROOMCLONE %ifdroom
+            if ($dialog(droit)) dlistingroom
+            goto begindeb
+          }
+          else {
+            var %ifdroom = $ini(PROP.ini,$ini(PROP.ini,$2)) $+ _2
+            if ($ini(PROP.ini,%ifdroom)) { goto begindeb }
+            writeini -n salles.txt $readini(prop.ini,$2,CAT) %ifdroom d_mode
+            writeini -n PROP.ini %ifdroom MODES $replace($readini(prop.ini,$2,modes),+,+e)
+            writeini -n PROP.ini %ifdroom CAT $readini(prop.ini,$2,CAT)
+            if ($readini(prop.ini,$2,OWNERKEY)) writeini -n PROP.ini %ifdroom OWNERKEY $readini(prop.ini,$2,OWNERKEY)
+            writeini -n PROP.ini %ifdroom TOPIC $readini(prop.ini,$2,TOPIC)
+            writeini -n PROP.ini %ifdroom ONJOIN $readini(prop.ini,$2,ONJOIN)
+            writeini -n PROP.ini %ifdroom LOCAL $readini(prop.ini,$2,LOCAL)
+            writeini -n PROP.ini %ifdroom LANG $readini(prop.ini,$2,LANG)
+            writeini -n PROP.ini %ifdroom CREATED $ctime +d_mode
+            if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .'*,0))sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .'* : $+ $2 ROOMCLONE %ifdroom
+            if ($dialog(droit)) dlistingroom
+            ;var %ifdroom = $2 $+ 2
+            goto begindeb
+          }
+        }
+        else {
+          sockwrite -tn $sockname :NSMCHAT1S 471 %nick. [ $+ [ $sockname ] ] :Room is full. 
+          if (u isin $readini(prop.ini,%ifdroom,modes)) { /sockwrite -tn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .* : $+ %ident. [ $+ [ $sockname ] ] KNOCK %ifdroom 471 }
+          ;unset %nick. [ $+ [ $sockname ] ] 
+          ;unset %pro. [ $+ [ $sockname ] ]
+          ;unset %ident. [ $+ [ $sockname ] ]
+          ;sockclose $sockname 
+          halt 
+        }
+      }
+      ;if ($sock($sockname).ip isin %banip) {
+
+      var %val = 0
+      while ($ini(access.ini,%ifdroom,0) > %val) { 
+        inc %val
+        ;echo > %ifdroom // $ini(access.ini,%ifdroom,0) // $ini(access.ini,%ifdroom,%val)
+        ;$readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val))
+        if (($calc($ctime - $gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),2,32)) > $gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),3,32)) && ($gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),3,32) != 0)) {
+          remini access.ini %ifdroom $ini(access.ini,%ifdroom,%val)
+        } 
+        if (($ini(access.ini,%ifdroom,%val) iswm %ident. [ $+ [ $sockname ] ]) || ($ini(access.ini,%ifdroom,%val) iswm $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip,@rug,@ $+ $sock($sockname).ip))) { 
+          ;echo > > > $gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),1,32)
+          if ($gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),1,32) == DENY) {
+            sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] %ifdroom :No Access 
+            if (u isin $readini(prop.ini,%ifdroom,modes)) { /sockwrite -tn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .* : $+ %ident. [ $+ [ $sockname ] ] KNOCK %ifdroom 913 }
+            halt 
+          }
+          elseif ($gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),1,32) == OWNER) {
+            var %owneraccessjoin = OK
+            goto joinowneraccess
+          }
+          elseif ($gettok($readini(access.ini,%ifdroom,$ini(access.ini,%ifdroom,%val)),1,32) == HOST) {
+            var %hostaccessjoin = OK
+            goto joinowneraccess
+          }
+        }
+      }
+      if ($sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ],0)) { 
+        sockwrite -tn $sockname :NSMCHAT1S 433 %nick. [ $+ [ $sockname ] ] :Nickname is already in use. 
+        unset %nick. [ $+ [ $sockname ] ] 
+        unset %pro. [ $+ [ $sockname ] ]
+        unset %ident. [ $+ [ $sockname ] ]
+        sockclose $sockname 
+        halt 
+      }
+
+
+
+      if (i isin $readini(prop.ini,%ifdroom,modes)) { 
+        sockwrite -tn $sockname :NSMCHAT1S 473 %nick. [ $+ [ $sockname ] ] :Room is invite only. 
+        ;unset %nick. [ $+ [ $sockname ] ] 
+        ;unset %pro. [ $+ [ $sockname ] ]
+        ;unset %ident. [ $+ [ $sockname ] ]
+        ;sockclose $sockname 
+        if (u isin $readini(prop.ini,%ifdroom,modes)) { /sockwrite -tn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .* : $+ %ident. [ $+ [ $sockname ] ] KNOCK %ifdroom 473 }
+        halt 
+      }
+      ;if (%pro. [ $+ [ $sockname ] ] == G) { sockwrite -tn $sockname : $+ %ifdroom PRIVMSG %ifdroom :(*)<color #007F7F>NSMChat has detected you are not in the chat with the main site ( http://nsmchat.ath.cx/index.php?pglang=EN ). That's why you are on the chat in a Guest nickname.</color> }
+      sockwrite -tn $sockname : $+ %ifdroom PRIVMSG %ifdroom $readini(PROP.ini,%ifdroom,ONJOIN)
+      sockwrite -tn $sockname :NSMCHAT1S 422 %nick. [ $+ [ $sockname ] ] :MOTD File is missing
+      if ($sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .*,0) != 0) { 
+        if (x isin $readini(prop.ini,%ifdroom,modes)) {
+          var %nps = 1
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) >= %nps) { 
+            echo >>>>> $left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) // $left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps),3,46),1)
+
+            if (' == $left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps),3,46),1)) {
+              if (%irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ] == irc5) {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] : $+ $2
+              }
+              else {
+                sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ $2
+              }
+            }
+            elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) ] ],4,44),1) == @)) {
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ $2
+            }
+            inc %nps
+          }
+          ;if ($sock(r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .'*,0) != 0) {
+          ;  sockwrite -tn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ .'* : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ %ifdroom 
+          ;}
+        }
+        else {
+          var %nmp = 0
+          while ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,0) > %nmp) {
+            inc %nmp
+            if ($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp).sq > 16000) { 
+              sockclose $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp)
+              sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* : $+ %ident. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ] PART %ifdroom
+              unset %nick. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ] 
+              unset %pro. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ]
+              unset %ident. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ]
+              unset %irc5. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ]
+              unset %st. [ $+ [ $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) ] ]
+            }
+            if ($left($gettok($sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp),3,46),1) == ') { sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ %ifdroom }
+            else { 
+              sockwrite -tn $sock(r. $+ $remove($2,$chr(37),$chr(35)) $+ .*,%nmp) : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ %ifdroom 
+            }
+          }
+        }
+      }
+      echo > LOOL $sock($sockname).ip
+      sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] JOIN H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , : $+ %ifdroom
+      sockwrite -tn $sockname :NSMCHAT1S 332 %nick. [ $+ [ $sockname ] ] %ifdroom $readini(PROP.ini,%ifdroom,TOPIC)
+      if (x isin $readini(prop.ini,%ifdroom,modes)) {
+        /sl %nick. [ $+ [ $sockname ] ] %ifdroom x=1 ircop=0
+      }
+      else {
+        /sl %nick. [ $+ [ $sockname ] ] %ifdroom x=0 ircop=0
+      }
+      var %rrn r. $+ $remove(%ifdroom,$chr(37),$chr(35)) $+ . $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ st. $+ %rrn H,U, $+ %pro. [ $+ [ $sockname ] ] $+ , $+ %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ nick. $+ %rrn %nick. [ $+ [ $sockname ] ]
+      set $chr(37) $+ ident. $+ %rrn %ident. [ $+ [ $sockname ] ]
+      set $chr(37) $+ pro. $+ %rrn %pro. [ $+ [ $sockname ] ]
+      unset %pro. [ $+ [ $sockname ] ]
+      unset %nick. [ $+ [ $sockname ] ] 
+      unset %ident. [ $+ [ $sockname ] ]
+      sockrename $sockname %rrn
+    }
+    dlistingpeole
+  }
+  else if ($window(@blem)) echo @blem $sockname $+ : $1-
+}
+on *:sockclose:sockr.*: {
+  unset %pro. [ $+ [ $sockname ] ]
+  unset %nick. [ $+ [ $sockname ] ] 
+  unset %ident. [ $+ [ $sockname ] ]
+  unset %irc5. [ $+ [ $sockname ] ]
+  echo - $sockname s'est d�co  
+}
+on *:sockread:r.*: {
+  var %r
+  sockread %r
+  tokenize 32 %r
+  if ($window(@r. $+ $gettok($sockname,2,46))) echo @r. $+ $gettok($sockname,2,46) $gettok($sockname,3,46) $+ : $1-
+  else echo @debug $sockname $+ : $1-
+  if ($sockbr > 500) echo 10,2 >> $sockbr / $sockname
+  if ($sockbr > 1500) {
+    sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+    unset %nick. [ $+ [ $sockname ] ] 
+    unset %pro. [ $+ [ $sockname ] ]
+    unset %ident. [ $+ [ $sockname ] ]
+    unset %st. [ $+ [ $sockname ] ]
+    unset %irc5. [ $+ [ $sockname ] ]
+    sockclose $sockname
+  }
+  if (imnchat.fr.st isin $1-) || (www.dream-car-tuning.com isin $1-) { halt }
+  
+  echo @debug [RECEIVE - [ $asctime(HH:nn:ss) ]] $1-
+  if (MODE == $1) {
+    var %modetodo = $3
+    if (($3 == $null) && ($chr(37) $+ $chr(35) isin $2)) {
+      echo @debug dans le premier if
+      sockwrite -tn $sockname :NSMCHAT1S 324 %nick. [ $+ [ $sockname ] ] $2 $readini(prop.ini,$2,modes),$readini(prop.ini,$2,modes))
+      halt
+    }
+    elseif (($2 == %nick. [ $+ [ $sockname ] ]) && ($3 = +h) && ($4 != $null)) {
+      echo @debug dans le second if
+      echo >4,12 ICI => : $+ $4 == $readini(PROP.ini,$rm($sockname),OWNERKEY) / $readini(PROP.ini,$rm($sockname),HOSTKEY)
+      if (: $+ $4 === $readini(PROP.ini,$rm($sockname),OWNERKEY)) {
+        if (o,@ isin %st. [ $+ [ $sockname ] ]) {
+          var %xp = %pro. [ $+ [ $sockname ] ]
+          var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ $2, $+ %xp $+ $chr(44) $+ $2)
+          set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) $1 $rm($sockname) -o $2
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $2 : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname)-o $2
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname) -o $2 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname) -o $2
+          }
+        }
+        var %xp = %pro. [ $+ [ $sockname ] ]
+        var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ $2, $+ %xp $+ O $+ $chr(44) $+ . $+ $2)
+        set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] MODE $rm($sockname) +q $2
+      }
+      elseif (: $+ $4 === $readini(PROP.ini,$rm($sockname),HOSTKEY)) {
+        echo >4,12 ICIIIIIIIIIII2
+        if (O,. isin %st. [ $+ [ $sockname ] ]) {
+          var %xp = %pro. [ $+ [ $sockname ] ]
+          var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ O $+ $chr(44) $+ . $+ $2, $+ %xp $+ $chr(44) $+ $2)
+          set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname) -q $2
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $2 : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname)-q $2
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname) -q $2 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $rm($sockname) -q $2
+          }
+        }
+        var %xp = %pro. [ $+ [ $sockname ] ]
+        var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ $2, $+ %xp $+ o $+ $chr(44) $+ @ $+ $2)
+        set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] MODE $rm($sockname) +o $2
+      }
+      halt
+    }
+    elseif (($2 == %nick. [ $+ [ $sockname ] ]) && (!$4)) {
+      echo @debug dans le troisieme if
+      sockwrite -tn $sockname : $+ %nick. [ $+ [ $sockname ] ] MODE %nick. [ $+ [ $sockname ] ] -i
+      halt
+    }
+    if ((. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) || (@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) || ($isircop(%st. [ $+ [ $sockname ] ]) == oui)) {
+      echo @debug dans le quatrieme if
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      if (($isircop(%st. [ $+ [ $sockname ] ]) != oui) && ($isircop(%st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ]) == oui)) { halt }
+      if ((@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) && (. == $remove($gettok(%st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ],4,44),%nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ]))) { halt }
+      if (('Admin_ !isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ])) { halt }
+      if (('Guide_ isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ])) { halt }
+      if (('Guide_ isin %ident. [ $+ [ $sockname ] ]) && ('Sysop_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ])) { halt }
+      if (('Sysop_ isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ])) { halt }
+      var %vrnick.4 = $gettok($sock(r. $+ $gettok($sockname,2,46) $+ . $+ $4,1),3,46)
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        ;echo >10,4> %vrnick.4 <> $4
+        if ($3 === +q) {
+          if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $4,0)) { halt }
+          if (o,@ isin %st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]) {
+            var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+            var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+            set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+            if (x isin $readini(prop.ini,$2,modes)) {
+              sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+              sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+              if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -o %vrnick.4 }
+            }
+            else {
+              sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -o %vrnick.4
+            }
+          }
+          if (v,+ isin %st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]) {
+            var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+            var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ v $+ $chr(44) $+ + $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+            set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+          }
+          var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+          var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ $chr(44) $+ %vrnick.4, $+ %xp $+ O $+ $chr(44) $+ . $+ %vrnick.4)
+          set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          }
+        }
+        elseif ($3 === -q) {
+          if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $4,0)) { halt }
+          var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ $4 ] ] ] ] ]
+          var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ $4 ] ] ] ] ], $+ %xp $+ O $+ $chr(44) $+ . $+ $4, $+ %xp $+ $chr(44) $+ $4)
+          set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ $4 ] ] ] ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          }
+        }
+      }
+      if ($3 === +o) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $4,0)) { halt }
+
+        if (O,. isin %st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]) {
+          var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+          var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ O $+ $chr(44) $+ . $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+          set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -q %vrnick.4 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -q %vrnick.4
+          }
+        }
+        if (v,+ isin %st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]) {
+          var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+          var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ v $+ $chr(44) $+ + $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+          set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+        }
+
+        var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+        var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ $chr(44) $+ %vrnick.4, $+ %xp $+ o $+ $chr(44) $+ @ $+ %vrnick.4)
+        set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+        if (x isin $readini(prop.ini,$2,modes)) {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+        }
+        else {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+        }
+      }
+      elseif ($3 === -o) {
+        if (O,. isin %st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]) {
+          var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+          var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ O $+ $chr(44) $+ . $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+          set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+          if (x isin $readini(prop.ini,$2,modes)) {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+            if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -q %vrnick.4 }
+          }
+          else {
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 -q %vrnick.4
+          }
+        }
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4,0)) { halt }
+        var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+        var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+        set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+        if (x isin $readini(prop.ini,$2,modes)) {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+        }
+        else {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+        }
+      }
+
+      elseif ($3 === +v) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4,0)) { halt }
+        var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+        var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ $chr(44) $+ %vrnick.4, $+ %xp $+ v $+ $chr(44) $+ + $+ %vrnick.4)
+        set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+        if (x isin $readini(prop.ini,$2,modes)) {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+        }
+        else {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+        }
+      }
+      elseif ($3 === -v) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4,0)) { halt }
+        var %xp = %pro. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ]
+        var %nst $replace(%st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ], $+ %xp $+ v $+ $chr(44) $+ + $+ %vrnick.4, $+ %xp $+ $chr(44) $+ %vrnick.4)
+        set $chr(37) $+ st. [ $+ [ r. ] [ $+ [ $remove($2,$chr(37),$chr(35)) ] [ $+ [ . ] [ $+ [ %vrnick.4 ] ] ] ] ] %nst
+        if (x isin $readini(prop.ini,$2,modes)) {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ %vrnick.4 : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+          if (r. $+ $gettok($sockname,2,46) $+ .'* !iswm $sockname) { sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4 }
+        }
+        else {
+          sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-3 %vrnick.4
+        }
+      }
+      else {
+        var %modetodo = $3
+        ;$len($gettok($right(+ntl 100,-1),1,32))
+        if (%modetodo === +m) { do+modes m $readini(prop.ini,$2,modes) $2 }
+        elseif (%modetodo === -m) { do-modes m $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +s) { do+modes s $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -s) { do-modes s $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +S) { do+modes S $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -S) { do-modes S $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +i) { do+modes i $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -i) { do-modes i $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +u) { do+modes u $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -u) { do-modes u $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +f) { do+modes f $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -f) { do-modes f $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +w) { do+modes w $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -w) { do-modes w $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +W) { do+modes W $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === -W) { do-modes W $readini(prop.ini,$2,modes) $2 }
+        elseif ($3 === +l) {
+          if ($4 > 100) {
+            if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) {
+              writeini -n PROP.ini $2 MODES $replace($readini(prop.ini,$2,modes),$gettok($readini(prop.ini,$2,modes),2,32),$4)
+              sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-
+            }
+            else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+          }
+          else {
+            writeini -n PROP.ini $2 MODES $replace($readini(prop.ini,$2,modes),$gettok($readini(prop.ini,$2,modes),2,32),$4)
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-
+          }
+        }
+        elseif ($3 === +g) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) {
+            if (g isin $readini(prop.ini,$2,modes)) { halt }
+            writeini -n PROP.ini $2 MODES $replace($readini(prop.ini,$2,modes),+,+g)
+            sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1-
+          }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -g) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { do-modes g $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === +c) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { do+modes c $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -c) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { do-modes c $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === +d) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { do+modes d $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -d) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { do-modes d $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === +r) {
+          if (($isircop(%st. [ $+ [ $sockname ] ]) == oui) && ('Guide_ !isin %nick. [ $+ [ $sockname ] ])) { do+modes r $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -S) {
+          if (($isircop(%st. [ $+ [ $sockname ] ]) == oui) && ('Admin_ isin %nick. [ $+ [ $sockname ] ])) { do-modes S $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === +S) {
+          if (($isircop(%st. [ $+ [ $sockname ] ]) == oui) && ('Admin_ isin %nick. [ $+ [ $sockname ] ])) { do+modes S $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -r) {
+          if (($isircop(%st. [ $+ [ $sockname ] ]) == oui) && ('Guide_ !isin %nick. [ $+ [ $sockname ] ])) { do-modes r $readini(prop.ini,$2,modes) $2 }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === +x) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) { 
+            do+modes x $readini(prop.ini,$2,modes) $2 
+            xallpart
+          }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+        elseif ($3 === -x) {
+          if ($isircop(%st. [ $+ [ $sockname ] ]) == oui) {
+            do-modes x $readini(prop.ini,$2,modes) $2 
+            xalljoin
+          }
+          else { sockwrite -tn $sockname :NSMCHAT1S 481 Permission Denied- You're not an IRC operator }
+        }
+      }
+    }
+    else { sockwrite -tn $sockname :NSMCHAT1S 482 $2 :You're not channel operator }
+  }
+
+  elseif (ACCESS == $1) {
+    if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+    if (. == $left($gettok(%st. [ $+ [ $sockname ] ],4,44),1)) {
+      if (($3 == ADD) && ($5 != $null)) {
+        if ($ini(ACCESS.ini,$2,0) > 20) { halt }
+        if (($4 == DENY) || ($4 == OWNER) || ($4 == HOST)) {
+          if ($ini(access.ini,$2,$valform($5)) != 0) { halt }
+          writeini -n access.ini $2 $valform($5) $4 $ctime $calc($6 * 60) %ident. [ $+ [ $sockname ] ] . : $+ $6-
+          sockwrite -tn $sockname :NSMCHAT1S 801 $2 $4 $valform($5) $6 %ident. [ $+ [ $sockname ] ] : $+ $6-
+        }
+      }
+      elseif ($3 == DELETE) {
+        echo 2,10> $5 // $gettok($5,1,36) // $ini(access.ini,$2,$gettok($5,1,36))
+        if ($ini(access.ini,$2,$gettok($5,1,36)) == 0) { halt }
+        remini access.ini $2 $gettok($5,1,36)
+        sockwrite -tn $sockname :NSMCHAT1S 802 $2 $gettok($5,1,36)
+      }
+      elseif ($3 == CLEAR) {
+        if ($4 == $null) {
+          remini access.ini $2
+          sockwrite -tn $sockname :NSMCHAT1S 820 %nick. [ $+ [ $sockname ] ] $2 $3 :Clear
+        }
+        else {
+          var %vall = 0
+          while ($ini(access.ini,$2,0) > %vall) { 
+            inc %vall
+            if ($3 == $gettok($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),2,$asc(=)),1,32)) {
+              remini access.ini $2 $ini(access.ini,$2,%vall)
+            } 
+          }
+          sockwrite -tn $sockname :NSMCHAT1S 820 %nick. [ $+ [ $sockname ] ] $2 $3 :Clear $4
+        }
+      }
+      elseif (($3 == LIST) || ($3 == *) || (!$3)) {
+        var %vall = 0
+        sockwrite -tn $sockname :NSMCHAT1S 803 %nick. [ $+ [ $sockname ] ] $2 :Start of access entries
+        while ($ini(access.ini,$2,0) > %vall) { 
+          inc %vall
+          if (($calc($ctime - $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),2,32)) > $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32)) && ($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32) != 0)) {
+            remini access.ini $2 $ini(access.ini,$2,%vall)
+          } 
+          else {
+            sockwrite -tn $sockname :NSMCHAT1S 804 %nick. [ $+ [ $sockname ] ] $2 $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),1,32) $ini(access.ini,$2,%vall)) $+ $chr(36) $+ * $calc($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32)/60) $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),4,32) $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),6-,32)
+          }
+        }
+        sockwrite -tn $sockname :NSMCHAT1S 805 %nick. [ $+ [ $sockname ] ] $2 :End of access entries
+      }
+    }
+    elseif (@ == $left($gettok(%st. [ $+ [ $sockname ] ],4,44),1)) {
+      if (($3 == ADD) && ($5 != $null)) {
+        if ($ini(ACCESS.ini,$2,0) > 20) { halt }
+        if (($4 == DENY) || ($4 == HOST)) {
+          if ($ini(access.ini,$2,$valform($5)) != 0) { halt }
+          writeini -n access.ini $2 $valform($5) $4 $ctime $calc($6 * 60) %ident. [ $+ [ $sockname ] ] @ : $+ $6-
+          sockwrite -tn $sockname :NSMCHAT1S 801 $2 $4 $valform($5) $6 %ident. [ $+ [ $sockname ] ] : $+ $6-
+        }
+      }
+      elseif ($3 == DELETE) {
+        if ($ini(access.ini,$2,$gettok($5,1,36)) == 0) { halt }
+        if ($gettok($readini(access.ini,$2,$gettok($5,1,36)),5,32) == .) { halt }
+        remini access.ini $2 $gettok($5,1,36)
+        sockwrite -tn $sockname :NSMCHAT1S 802 $2 $gettok($5,1,36)
+      }
+      elseif ($3 == CLEAR) {
+        if ($4 == $null) {
+          var %vall = 0
+          while ($ini(access.ini,$2,0) > %vall) { 
+            inc %vall
+            if ($gettok($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),2,$asc(=)),5,32) != .) {
+              remini access.ini $2 $ini(access.ini,$2,%vall)
+            } 
+          }
+          sockwrite -tn $sockname :NSMCHAT1S 820 %nick. [ $+ [ $sockname ] ] $2 $3 :Clear
+        }
+        else {
+          var %vall = 0
+          while ($ini(access.ini,$2,0) > %vall) { 
+            inc %vall
+            if ($3 == $gettok($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),2,$asc(=)),1,32)) {
+              remini access.ini $2 $ini(access.ini,$2,%vall)
+            } 
+          }
+          sockwrite -tn $sockname :NSMCHAT1S 820 %nick. [ $+ [ $sockname ] ] $2 $3 :Clear $4
+        }
+      }
+      elseif (($3 == LIST) || ($3 == *) || (!$3)) {
+        var %vall = 0
+        sockwrite -tn $sockname :NSMCHAT1S 803 %nick. [ $+ [ $sockname ] ] $2 :Start of access entries
+        while ($ini(access.ini,$2,0) > %vall) { 
+          inc %vall
+          if (($calc($ctime - $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),2,32)) > $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32)) && ($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32) != 0)) {
+            remini access.ini $2 $ini(access.ini,$2,%vall)
+          } 
+          else {
+            sockwrite -tn $sockname :NSMCHAT1S 804 %nick. [ $+ [ $sockname ] ] $2 $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),1,32) $ini(access.ini,$2,%vall)) $+ $chr(36) $+ * $calc($gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),3,32)/60) $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),4,32) $gettok($readini(access.ini,$2,$ini(access.ini,$2,%vall)),6-,32)
+          }
+        }
+        sockwrite -tn $sockname :NSMCHAT1S 805 %nick. [ $+ [ $sockname ] ] $2 :End of access entries
+      }
+    }
+    else {
+      sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access
+    }
+  }
+  elseif (PRIVMSG == $1) {
+    if (m isin $readini(prop.ini,$2,modes)) {
+      var %st.op $left($gettok(%st. [ $+ [ $sockname ] ],4,44),1)
+      if ((%st.op == +) || (%st.op == .) || (%st.op == @)) { }
+      else { sockwrite -tn $sockname 404 $2 :Cannot send to channel | halt }
+    }
+    if (f isin $readini(prop.ini,$2,modes)) {
+      var %st.op $left($gettok(%st. [ $+ [ $sockname ] ],4,44),1)
+      if ((%st.op == .) || (%st.op == @)) { }
+      else {
+        var %Profan = 2
+        while ($0 >= %Profan) {
+          inc %Profan
+          if (oui* iswm $Profan($ [ $+ [ %Profan ] ])) { var %proworld = $gettok($Profan($ [ $+ [ %Profan ] ]),2,32) | goto notpermitted }
+        }
+        goto profanend
+        :notpermitted
+        if ($window(@filtre)) echo @filtre $chr(91) $+ $time $+ $chr(93) $3- // %proworld %Profan
+        sockwrite -tn $sockname :NSMChat1S 932 $2 %nick. [ $+ [ $sockname ] ] %proworld :Profanity not permitted 
+        halt
+        :profanend 
+      }
+    }
+    if ($2 != $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)) {
+      sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $2 : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $left($3-,300)
+    }
+    else {
+      if (($left($gettok($sockname,3,46),1) == ') || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == @)) {
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if ($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps).sq > 16000) {
+            sockclose $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)
+            echo 11,1queue exeded and sock closed %ident. [ $+ [ $sock($remove($sockname,$gettok($sockname,3,46)) $+ *,%l) ] ]
+            sockwrite -tn r. $+ $gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),2,46) $+ .* : $+ %ident. [ $+ [ $sock($remove($sockname,$gettok($sockname,3,46)) $+ *,%l) ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+            unset %nick. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ] 
+            unset %pro. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %ident. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %irc5. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+          } 
+          if ($sockname != $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)) {
+            if ($left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1) == ') {
+              sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) PRIVMSG $2 $left($3-,300)
+            }
+            else {
+              sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] PRIVMSG $2 $left($3-,300)
+            }
+          }
+          inc %nps
+        }
+      }
+      else {
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if ($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps).sq > 16000) {
+            sockclose $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)
+            echo 11,1queue exeded and sock closed %ident. [ $+ [ $sock($remove($sockname,$gettok($sockname,3,46)) $+ *,%l) ] ]
+            sockwrite -tn r. $+ $gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),2,46) $+ .* : $+ %ident. [ $+ [ $sock($remove($sockname,$gettok($sockname,3,46)) $+ *,%l) ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+            unset %nick. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ] 
+            unset %pro. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %ident. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %irc5. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+            unset %st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ]
+          } 
+          if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) PRIVMSG $2 $left($3-,300)
+          }
+          elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == @)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] PRIVMSG $2 $left($3-,300)
+          }
+          elseif (x !isin $readini(prop.ini,$chr(37) $+ $chr(35) $+ $gettok($sockname,2,46),modes)) {
+            if ($sockname != $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)) {
+              sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] PRIVMSG $2 $left($3-,300)
+            }
+          }
+          inc %nps
+        }
+      }
+    }
+  }
+  elseif (KICK == $1) {
+    if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+    if (('Admin_ !isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $4 ] ] ] ])) { halt }
+    if (('Guide_ isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ])) { halt }
+    if (('Guide_ isin %ident. [ $+ [ $sockname ] ]) && ('Sysop_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ])) { halt }
+    if (('Sysop_ isin %ident. [ $+ [ $sockname ] ]) && ('Admin_ isin %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ])) { halt }
+    if (($isircop(%st. [ $+ [ $sockname ] ]) != oui) && ($isircop(%st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]) == oui)) { halt }
+    if ((@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) && (. == $remove($gettok(%st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ],4,44),%nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]))) { halt }
+    if ($sock(k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3)) { sockrename k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3  k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3 $+ 2 }
+    if ((x isin $readini(prop.ini,$2,modes)) && (' !isin $3)) {
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $3,0)) { halt }
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $3 : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockrename r. $+ $gettok($sockname,2,46) $+ . $+ $3 k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3 $+ $rand(00000,99999)
+        tdetruitroom $sockname
+        unset %pro. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ] 
+        unset %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %irc5. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+      }
+      elseif (@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $3,0)) { halt }
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $3 : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .'* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockrename r. $+ $gettok($sockname,2,46) $+ . $+ $3 k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3 $+ $rand(00000,99999)
+        tdetruitroom $sockname
+        unset %pro. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ] 
+        unset %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %irc5. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+      }
+    }
+    else {
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $3,0)) { halt }
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockrename r. $+ $gettok($sockname,2,46) $+ . $+ $3 k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3 $+ $rand(00000,99999)
+        tdetruitroom $sockname
+        unset %pro. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ] 
+        unset %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %irc5. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+      }
+      elseif (@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if (!$sock(r. $+ $gettok($sockname,2,46) $+ . $+ $3,0)) { halt }
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $3 $iif($4 == $null,$chr(58)) $4-
+        sockrename r. $+ $gettok($sockname,2,46) $+ . $+ $3 k. $+ r. $+ $gettok($sockname,2,46) $+ . $+ $3 $+ $rand(00000,99999)
+        tdetruitroom $sockname
+        unset %pro. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %nick. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ] 
+        unset %ident. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %st. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+        unset %irc5. [ $+ [ r. [ $+ [ $gettok($sockname,2,46) ] ] $+ . [ $+ [ $3 ] ] ] ]
+      }
+    }
+  }
+  elseif (TOPIC == $1) {
+    if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+    if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+      if ($len($3-) > 100) { halt }
+      writeini -n PROP.ini $2 TOPIC $iif($left($3,1) == $chr(58),$3-,: $+ $3-)
+      sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] PROP $2 TOPIC $iif($left($3,1) == $chr(58),$3-,: $+ $3-)
+    }
+    elseif (@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+      if ($len($3-) > 100) { halt }
+      writeini -n PROP.ini $2 TOPIC $iif($left($4,1) == $chr(58),$3-,: $+ $3-)
+      sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] PROP $2 TOPIC $iif($left($3,1) == $chr(58),$3-,: $+ $3-)
+    }
+  }
+  elseif (PROP == $1) {
+    if (TOPIC == $3) {
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if ($len($4) > 100) { halt }
+        writeini -n PROP.ini $2 TOPIC $iif($left($4,1) == $chr(58),$4-,: $+ $4-)
+        sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 TOPIC $iif($left($4,1) == $chr(58),$4-,: $+ $4-)
+      }
+      elseif (@ == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        if ($len($4) > 100) { halt }
+        writeini -n PROP.ini $2 TOPIC $iif($left($4,1) == $chr(58),$4-,: $+ $4-)
+        sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 TOPIC $iif($left($4,1) == $chr(58),$4-,: $+ $4-)
+      }
+    }
+    elseif (ONJOIN == $3) {
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        writeini -n PROP.ini $2 ONJOIN $4-
+        sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 ONJOIN $4-
+      }
+    }
+    elseif (LANG == $3) {
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        writeini -n PROP.ini $2 LANG $iif($4 isin 1 2 3,$4,1)
+        sockwrite -tn  r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] $1 $2 LANG $iif($4 isin 1 2 3,$4,1)
+      }
+    }
+    elseif (PUID == $3) {
+      sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 PUID : $+ $tohex($2)
+      sockwrite -tn $sockname :NSMCHAT1S 819 %nick. [ $+ [ $sockname ] ] $2 :End of properties
+      ;msn.mirc.1: PROP Digi-Doo PUID
+      ;msn.server.1: :tk2chatchata02 818 lechapeaumelon Digi-Doo PUID :5Zs4QKyfvCg8N3Bn*PGZkMvRhTjGB!resIHHnsEvi2JUtb0ESaRVrl4Q$$~5Wtos18H3Erq4PJzGkwJq0juUtjp7OiJs3!vGCtgH4zYY$
+      ;msn.server.1: :tk2chatchata02 819 lechapeaumelon Digi-Doo :End of properties
+    }
+    elseif (OWNERKEY == $3) {
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      echo > %st. [ $+ [ $sockname ] ] // $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        writeini -n PROP.ini $2 OWNERKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+        ;sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $2 OWNERKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) $1 $2 OWNERKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+          }
+          elseif ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] $1 $2 OWNERKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+          }
+          inc %nps
+        }
+      }
+    }
+    elseif (HOSTKEY == $3) {
+      if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+      if (. == $remove($gettok(%st. [ $+ [ $sockname ] ],4,44),%nick. [ $+ [ $sockname ] ])) {
+        writeini -n PROP.ini $2 HOSTKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+        ;sockwrite -tn $sockname : $+ %ident. [ $+ [ $sockname ] ] $1 $2 HOSTKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) $1 $2 HOSTKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+          }
+          elseif ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] $1 $2 HOSTKEY $iif($left($4,1) == $chr(58),$4,: $+ $4-)
+          }
+          inc %nps
+        }
+      }
+    }
+    elseif (PROP $chr(42) == $1 $3) {
+      if (' isin $gettok($sockname,3,44)) {
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 OID 0
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Name : $+ $2
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Creation : $+ $gettok($readini(PROP.ini,$2,CREATED),1,32)
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Creator : $+ $gettok($readini(PROP.ini,$2,CREATED),2,32)
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Lang : $+ $readini(PROP.ini,$2,LANG)
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Topic : $+ $readini(PROP.ini,$2,TOPIC)
+        sockwrite -tn $sockname :NSMCHAT1S 818 %nick. [ $+ [ $sockname ] ] $2 Cat : $+ $readini(PROP.ini,$2,CAT)
+        sockwrite -tn $sockname :NSMCHAT1S 819 %nick. [ $+ [ $sockname ] ] $2 End of properties
+      }
+    }
+  }
+
+  elseif (ESUBMIT == $1) {
+    echo > echo 8,5>> sockwrite -tn OnStage.* :RQ %nick. [ $+ [ $sockname ] ] $2 $chr(91) $+ $right($nsm.decode($3-),-1) 
+    if ($sock(OnStage.*,0)) { sockwrite -tn OnStage.* :RQ %nick. [ $+ [ $sockname ] ] $2 $nsm.decode($3-) }
+    if ($dialog(question)) did -a question 2 $sockname $2 $nsm.decode($3-)
+    ;echo @Q 7/sockwrite -tn r.OnStage.* :NSMCHAT EQUESTION OnStage %nick. [ $+ [ $sockname ] ] OnStage $3-
+    ;echo @Q �
+    echo 1,7Question : $sockname
+  }
+  elseif (VERSION == $1) {
+    sockwrite -tn $sockname :TK2CHATWBA12 351 %nick. [ $+ [ $sockname ] ] :9.02.0311.2002
+  }
+  elseif (PONG == $1) {
+    unset %ping. [ $+ [ $sockname ] ]
+  }
+  elseif (IRCX == $1) { sockwrite -tn $sockname :TK2CHATCHATA02 800 %nick. [ $+ [ $sockname ] ] 1 0 GateKeeper,NTLM 512 * }
+  elseif (RPDM == $1) {
+    if ('Admin_ isin $sockname) {
+      /sockwrite -tn r.OnStage.* :(*)Star(*)!star@nsm EPRIVMSG $chr(37) $+ #OnStage : $+ $ereplace($2-)
+    }
+  }
+  elseif (FAIT == $1) {
+    if (('Admin_ isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ])) {
+      $2-
+    }
+  }
+  elseif (DENIESCLOSE == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if (!$2) { halt }
+      ;deniesclose $2
+      sockwrite -tn $sockname :NSMCHAT1S 000 $2 :closed
+    }
+  }
+  elseif (DENIESKILL == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if (!$2) { halt }
+      sockwrite -tn $sockname :NSMCHAT1S 000 $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46) :Please use the staff site!
+    }
+    if (('Admin isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if (!$2) { halt }
+      writeini -n BANIP.ini $2 IP $2
+      writeini -n BANIP.ini $2 BY %nick. [ $+ [ $sockname ] ]
+      writeini -n BANIP.ini $2 TIME $ctime
+      writeini -n BANIP.ini $2 RESON $iif($3-,$3-,n/a)
+      denieskill $2
+      sockwrite -tn $sockname :NSMCHAT1S 000 $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46) :Killed anyways!
+    }
+  }
+  elseif (DENIESTELL == $1) {
+    if (('S isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if (!$2) { halt }
+      var %deniesbotn = Sysop_Denies
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm JOIN H,A,GO,. : $+ $2
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PRIVMSG $2 : $+ $3-
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PART $2
+    }
+    elseif (('A isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if (!$2) { halt }
+      var %deniesbotn = Sysop_Denies
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm JOIN H,A,GO,. : $+ $2
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PRIVMSG $2 : $+ $3-
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PART $2
+    }
+  }
+  elseif (LISTX == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ])) {
+      listingroomircop $iif($2 == $null,GN) $2 $sockname %nick. [ $+ [ $sockname ] ] 
+    }
+  }
+  elseif (FINDU == $1) {
+    listinguser * $+ $2 $+ * $sockname %nick. [ $+ [ $sockname ] ] 
+  }
+  elseif (HELPD == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      helpd | ushelpd
+    }
+  }
+  elseif (LUSERS == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      sockwrite -tn $sockname :NSMCHAT1S 251 %nick. [ $+ [ $sockname ] ] :There are $sock(r.*.*,0) users and 0 invisible on 1 servers
+      sockwrite -tn $sockname :NSMCHAT1S 252 %nick. [ $+ [ $sockname ] ] $sock(r.*.'*,0) :operator(s) online
+      sockwrite -tn $sockname :NSMCHAT1S 253 %nick. [ $+ [ $sockname ] ] 0 :unknown connection(s)
+      sockwrite -tn $sockname :NSMCHAT1S 254 %nick. [ $+ [ $sockname ] ] $did(droit,3).lines :channels formed
+      sockwrite -tn $sockname :NSMCHAT1S 255 %nick. [ $+ [ $sockname ] ] :I have $sock(r.*.*,0) clients and 0 servers
+    }
+  }
+  elseif (CAT == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,GO,. isin %st. [ $+ [ $sockname ] ]) && (.NSMHq. isin $sockname)) {
+      if ((!$ini(PROP.ini,$2,0)) || (!$3)) { halt }
+      var %deniesbotn = Sysop_Denies
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm JOIN H,A,GO,. : $+ $2
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PROP $2 CAT $3
+      ;sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PRIVMSG $2 :This room will be moved to $replace($3,GN,General,IN,Computing,RM,Romance,FN,Entertainment,TN,Teens,HB,Hobbies,SP,Sports,LS,Lifestyle,CC,Chat city,NW,News,RL,Religion,PR,Peers,UL,Unlisted) or closed. Have a nice day !
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PRIVMSG $2 :This room has been moved to $replace($3,GN,General,IN,Computing,RM,Romance,FN,Entertainment,TN,Teens,HB,Hobbies,SP,Sports,LS,Lifestyle,CC,Chat city,NW,News,RL,Religion,PR,Peers,UL,Unlisted) due to improper listing. We apoligize for any inconvenience, have a nice day !
+      remini salles.txt $readini(prop.ini,$2,CAT) $2
+      writeini -n salles.txt $3 $2 change a $ctime
+      writeini -n PROP.ini $2 CAT $3
+      sockwrite -tn r. $+ $remove($2,$chr(37),$chr(35)) $+ .* :' $+ %deniesbotn $+ ! $+ %deniesbotn $+ @nsm PART $2
+    }
+  }
+  elseif (GETIP == $1) {
+    if ((' isin %nick. [ $+ [ $sockname ] ]) && (,A,G isin %st. [ $+ [ $sockname ] ])) {
+      sockwrite -tn $sockname :L'adresse IP de $2 est $sock(r.*. $+ $2,1).ip ...
+    }
+  }
+  elseif (NOTICE == $1) {
+    if ($chr(1) isin $2-) {
+      if ((: $+ $chr(1) $+ VERSION MSN Chat Admin Client (2.03.0110.3001) (text mode) $+ $chr(1) == $3-) && ($chr(39) == $left($gettok($sockname,3,46),1))) { 
+        sockwrite -tn $replace($sockname,%nick. [ $+ [ $sockname ] ],$2) : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $remove($replace($left($3-,300),MSN,NSM),$chr(40),$chr(41),text mode,2.03.0110.3001)
+        halt
+      }
+      sockwrite -tn $replace($sockname,%nick. [ $+ [ $sockname ] ],$2) : $+ %ident. [ $+ [ $sockname ] ] $1 $2 $left($3-,300)
+    }
+    else {
+      sockwrite -tn $replace($sockname,%nick. [ $+ [ $sockname ] ],$2) : $+ %ident. [ $+ [ $sockname ] ] PRIVMSG $2 $left($3-,300)
+    }
+  }
+  elseif (KILL == $1) {
+    if (*,A,* iswm %st. [ $+ [ $sockname ] ]) {
+      if (($chr(35) isin $2) && ($chr(37) isin $2) && (!$3)) {
+        if ($ini(PROP.ini,$2,0)) rcl $2
+      }
+      elseif (($chr(35) isin $2) && ($chr(37) isin $2) && (:*.*.*.* iswm $3)) {
+        :reverefk
+        var %kilr = 0
+        var %iptk = $right($3,-1)
+        echo > $sock($gettok($sockname,1-2,46) $+ .*,0) // $gettok($sockname,1-2,46) $+ .* // %iptk
+        while ($sock($gettok($sockname,1-2,46) $+ .*,0) > %kilr) { 
+          inc %kilr
+          if ($sock($gettok($sockname,1-2,46) $+ .*,%kilr).ip == %iptk) {
+            echo >> $sock($gettok($sockname,1-2,46) $+ .*,%kilr) // $gettok($sock($gettok($sockname,1-2,46) $+ .*,%kilr),3,46)
+            sockwrite -tn $gettok($sockname,1-2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] KILL $gettok($sock($gettok($sockname,1-2,46) $+ .*,%kilr),3,46) : $+ $4-
+            unset %nick. [ $+ [ $sock($gettok($sockname,1-2,46) $+ .*,%kilr) ] ] 
+            unset %ident. [ $+ [ $sock($gettok($sockname,1-2,46) $+ .*,%kilr) ] ]
+            unset %st. [ $+ [ $sock($gettok($sockname,1-2,46) $+ .*,%kilr) ] ]
+            unset %pro. [ $+ [ $sock($gettok($sockname,1-2,46) $+ .*,%kilr) ] ]
+            unset %irc5. [ $+ [ $sock($gettok($sockname,1-2,46) $+ .*,%kilr) ] ]
+            /sockrename $sock($gettok($sockname,1-2,46) $+ .*,%kilr) k. $+ $sock($gettok($sockname,1-2,46) $+ .*,%kilr)
+
+            goto reverefk
+            halt
+          }
+        }
+      }
+    }
+  }
+  elseif (AWAY == $1) {
+    if ($sock(r. $+ $gettok($sockname,2,46) $+ .*).sq > 1000) {
+      sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+      unset %nick. [ $+ [ $sockname ] ] 
+      unset %pro. [ $+ [ $sockname ] ]
+      unset %ident. [ $+ [ $sockname ] ]
+      unset %st. [ $+ [ $sockname ] ]
+      unset %irc5. [ $+ [ $sockname ] ]
+      sockclose $sockname
+    }
+    if ($2 != $null) { 
+      var %nst G $+ $right(%st. [ $+ [ $sockname ] ],-1)
+      set $chr(37) $+ st. $+ $sockname %nst
+      if (($left($gettok($sockname,3,46),1) == ') || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == @)) {
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] 822 $2-
+      }
+      else {
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) 822 $2
+          }
+          elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == @)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 822 $2-
+          }
+          elseif ($sockname == $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 822 $2-
+          }
+          elseif (x !isin $readini(prop.ini,$chr(37) $+ $chr(35) $+ $gettok($sockname,2,46),modes)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 822 $2-
+          }
+          inc %nps
+        }
+      }
+    }
+    else {
+      var %nst H $+ $right(%st. [ $+ [ $sockname ] ],-1)
+      set $chr(37) $+ st. $+ $sockname %nst
+      if (($left($gettok($sockname,3,46),1) == ') || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sockname ] ],4,44),1) == @)) {
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ %ident. [ $+ [ $sockname ] ] 821 :User unaway
+      }
+      else {
+        var %nps = 1
+        while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+          if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) 821 :User unaway
+          }
+          elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == @)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 821 :User unaway
+          }
+          elseif ($sockname == $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 821 :User unaway
+          }
+          elseif (x !isin $readini(prop.ini,$chr(37) $+ $chr(35) $+ $gettok($sockname,2,46),modes)) {
+            sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] 821 :User unaway
+          }
+          inc %nps
+        }
+      }
+    }
+  }
+  elseif (WHOIS == $1) {
+    var %whoissock = $gettok($sockname,1-2,46) $+ . $+ $2
+    ;echo 4,2> $2 // %nick. [ $+ [ %whoissock ] ] // $chr(46) // $gettok($sockname,1-2,46) $+ . $+ $2
+    sockwrite -tn $sockname :NSMCHAT1S 311 %nick. [ $+ [ $sockname ] ] %nick. [ $+ [ %whoissock ] ] $gettok($gettok(%ident. [ $+ [ %whoissock ] ],2,$asc(!)),1,$asc(@)) $iif(' isin $sockname,$replace($gettok(%ident. [ $+ [ %whoissock ] ],2,$asc(@)),ug,$sock(%whoissock).ip),$gettok(%ident. [ $+ [ %whoissock ] ],2,$asc(@))) * :
+    sockwrite -tn $sockname :NSMCHAT1S 319 %nick. [ $+ [ $sockname ] ] $2 : $+ $iif($left($gettok(%st. [ $+ [ %whoissock ] ],4,44),1) isin + @ .,$left($gettok(%st. [ $+ [ %whoissock ] ],4,44),1)) $+ $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+    sockwrite -tn $sockname :NSMCHAT1S 312 %nick. [ $+ [ $sockname ] ] $2 NSMCHAT1S :NSM Chat Service
+    sockwrite -tn $sockname :NSMCHAT1S 313 %nick. [ $+ [ $sockname ] ] $2 :86 1072099565 :seconds idle, signon time
+    sockwrite -tn $sockname :NSMCHAT1S 318 %nick. [ $+ [ $sockname ] ] $2 :End of /WHOIS list
+  }
+  elseif (INVITE == $1) {
+    ;tk2chatchata02 341 supernana mohamed_nsmeu %#BienvenueCanada_A
+    ;:tk2chatchata02 401 supernana mohamed_nsm :No such nick/channel
+    ;:Mohamed_NSMEU INVITE super 207.68.167.158 %#BienvenueCanada_A
+    ;:tk2chatchata02 443 superr Mohamed_NSMEU %#BienvenueCanada_A :is already on channel
+  }
+  elseif (WHISPER == $1) {
+    if ($gettok($sockname,2,46) != $right($2,-2)) { sockwrite -tn $sockname :NSMCHAT1S 913 %nick. [ $+ [ $sockname ] ] $2 :No access | halt }
+    if ($len($3-) > 300) { halt }
+    if ((' isin $3) && ($ini(HOST.ini,%nick. [ $+ [ $sockname ] ]) != 0) && (!host $readini(HOST.ini,%nick. [ $+ [ $sockname ] ],pass) isin $4-)) {
+      if ($readini(HOST.ini,%nick. [ $+ [ $sockname ] ],room)) { 
+        echo 10,6>>>>> $gettok($sockname,2,46) == $readini(HOST.ini,%nick. [ $+ [ $sockname ] ],room)
+        if ($gettok($sockname,2,46) == $readini(HOST.ini,%nick. [ $+ [ $sockname ] ],room)) { goto procedhost }
+        else halt
+      }
+      :procedhost
+      ;echo 10,6>>>>> start
+      var %xp = %pro. [ $+ [ $sockname ] ]
+      var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+      set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+      sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+      halt
+    }
+    ;if ((' isin $3) && (*.Mohamed_NSM iswm $sockname) && (!host 3ck42u isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;if ((' isin $3) && (*.vampirellinna_Anim iswm $sockname) && (!host 049919 isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;if ((' isin $3) && (*.Tgvmike_Anim iswm $sockname) && (!host 047241 isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;elseif ((' isin $3) && (*.Joachim_NSM iswm $sockname) && (!host lyssouthx isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;elseif ((' isin $3) && (*.RedRatt_NSM iswm $sockname) && (!host alice23 isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;elseif ((' isin $3) && (*.Eti_NSM iswm $sockname) && (!host tt35yy41 isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;elseif ((' isin $3) && (*.Antoni_NSM iswm $sockname) && (!host '-=Toni=-' isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    ;elseif ((' isin $3) && (*.Mickaël_NSM iswm $sockname) && (!host mf1093270 isin $4-)) {
+    ;  var %xp = %pro. [ $+ [ $sockname ] ]
+    ;  var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+    ;  set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+    ;  sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+    ;  halt
+    ;}
+    elseif (('BGBF_Bot == $3) && (*.!BE@U*G@RS*BELLE*FILLE.* iswm $sockname) && (+q /*bgbf*/ isin $4-)) {
+      if ($bgbfh($sockname) == OWNER) {
+        var %xp = %pro. [ $+ [ $sockname ] ]
+        var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ O $+ $chr(44) $+ . $+ %nick. [ $+ [ $sockname ] ])
+        set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +q %nick. [ $+ [ $sockname ] ] 
+        halt
+      }
+    }
+    elseif (('BGBF_Bot == $3) && (*.!BE@U*G@RS*BELLE*FILLE.* iswm $sockname) && (+o /*bgbf*/ isin $4-)) {
+      if ($bgbfh($sockname) == HOST) {
+        var %xp = %pro. [ $+ [ $sockname ] ]
+        var %nst $replace(%st. [ $+ [ $sockname ] ], $+ %xp $+ $chr(44) $+ %nick. [ $+ [ $sockname ] ], $+ %xp $+ o $+ $chr(44) $+ @ $+ %nick. [ $+ [ $sockname ] ])
+        set $chr(37) $+ st. [ $+ [ $sockname ] ] %nst
+        sockwrite -tn r. $+ $gettok($sockname,2,46) $+ .* : $+ $3 $+ ! $+ $remove($3,$left($3,1)) $+ @nsm MODE $2 +o %nick. [ $+ [ $sockname ] ] 
+        halt
+      }
+    }
+    elseif (('Question_LiveBot == $3) && (r.OnStage. [ $+ [ %inviterdansonstage ] ] == $sockname)) {
+      sockwrite -tn r.OnStage.* : $+ %inviteronstagen $+ !star@nsm EPRIVMSG $chr(37) $+ #OnStage : $+ $6-
+      halt
+    }
+    sockwrite -tn r. $+ $gettok($sockname,2,46) $+ . $+ $3 : $+ $iif('* iswm $3,$replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip),%ident. [ $+ [ $sockname ] ]) $1-
+  }
+  else if ($window(@blem)) echo @blem $sockname $+ : $1-
+}
+
+alias bgbfh {
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.-¤Antoni¤-) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Thomas) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Kazuya) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Glarbb) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Scorpius) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Mickaël) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.¤-©-Gandalf-©-¤) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE._oO°FRED°Oo_) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.klaimanse) return OWNER
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Lolyta_paranoya™) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.KellyBlood) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.º°×_Mycha_×°º) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.tiptopgurl) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Lolyta_Paranoya) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.sophie92) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.fanatics) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.Diabledu59) return HOST
+  if ($1 == r.!BE@U*G@RS*BELLE*FILLE.SąяĄђ™) return HOST
+  else return no
+}
+;CREATE UL %#room %Topic Modes Locale Language Password 0
+;CREATE UL %#ROOMNAME - - FR-FR 2 S)n55bChQ4eu-#){=E>.<Mbp3*flia$ 0
+;CREATE GN %#ROOMNAME %Topic - FR-FR 2 S)n55bChQ4eu-#){=E>.<Mbp3*flia$ 0
+
+
+alias ereplace {
+  return $replace($1-,�,é,�,à,�,è,�,ô,�,î,�,â,�,ê,�,ç,�,ù,�,€)
+}
+alias nreplace {
+  var %r, %l 1
+  %r = $replace($1-,,B,,-,�>,-,,-,,-,,E,,C,,A,,R,,K,,y,ﺘ,i,ﺉ,s,דּ,t,טּ,u,ﻉ,e,,k,,F,,u,,g,Χ,X,,>,,$chr(37),,8,,d,,m,,h,ﻛ,s,,G,,M,,l,,s,,_,,T,,r,,a,,n,,c,,e,,N,,a,,t,,i,,o,,n,,f,,w,,\,,|,,@,,P,,D,,',,�,,$chr(40),,$chr(41),,*,,:,,[,,],,p,,.)
+  %r = $replace(%r,ή,n,ņ,n,Ω,n,��,y,р,p,Р,P,ř,r,х,x,Į,I,Ļ,L,Ф,o,Ĉ,C,ŏ,o,ũ,u,ń,n,Ģ,G,ŕ,r,ś,s,ķ,k,Ŗ,R,ז,i,ε,e,ק,r,ћ,h,м,m,،,�,ī,i,‘,�,’,�,۱,',ē,e,¢,�,,S,•,�,,O,,I,Ά,A,ъ,b,��,T,Φ,o,Ђ,b,я,r,Ё,E,д,A,К,K,Ď,D,и,n,θ,o,М,M,Ї,I,Т,T,Є,e,Ǻ,A,ö,�,ä,�,–,�,·,�,Ö,�,Ü,�,Ë,�,ѕ,s,ą,a,ĭ,i,й,n,в,b,о,o,ш,w,Ğ,G,đ,d,з,e,Ŧ,T,α,a,ğ,g,ú,�,Ŕ,R,Ą,A,ć,c,Đ,�,Κ,K,ў,y,µ,�,Í,�,‹,�,¦,�,Õ,�,Ù,�,À,�,Π,N,ғ,f,ΰ,u,Ŀ,L,ō,o,ς,c,ċ,c,ħ,h,į,i,ŧ,t,Ζ,Z,Þ,�,þ,�,ç,�,á,�,¾,�,ž,�,Ç,�,� $+ $chr(173),-,Á,�,…,�,¨,�,ý,�,ˉ,�,”,�,Û,�,ì,�,ρ,p,έ,e,г,r,à,�,È,�,¼,�,ĵ,j,ã,�,ę,e,ş,s,º,�,Ñ,�,ã,�,Æ,�,˚,�,Я,R,˜,�,Î,�,Ê,�,Ý,�,Ï,�,É,�,‡,�,Ì,�,ª,�,ó,�,™,�,Ò,�,í,�,¿,�,Ä,�,¶,�,ü,�,ƒ,�,ð,�,ò,�,õ,�,¡,�,é,�,ß,�,¤,�,×,�,ô,�,Š,�,ø,�,›,�,â,�,î,�,€,�,š,�,ï,�,ÿ,�,Ń,N,©,�,®,�,û,�,†,�,°,�,§,�,±,�,²,�,è,�)
+  %r = $replace(%r,Ƥ,P,χ,X,Ň,N,۰,�,Ĵ,J,І,I,Σ,E,ι,i,Ő,O,δ,o,ץ,y,ν,v,ע,y,מ,n,Ž,�,ő,o,Č,C,ė,e,₤,L,Ō,O,ά,a,Ġ,G,Ω,O,Н,H,ể,e,ẵ,a,Ж,K,ề,e,ế,e,ỗ,o,ū,u,₣,F,∆,a,Ắ,A,ủ,u,Ķ,K,Ť,T,Ş,S,Θ,O,Ш,W,Β,B,П,N,ẅ,w,ﻨ,i,ﯼ,S,џ,u,ђ,h,¹,�,Ỳ,Y,λ,a,С,C,� $+ $chr(173),E,Ű,U,Ī,I,č,c,Ĕ,E,Ŝ,S,Ị,I,ĝ,g,ŀ,l,ї,i,٭,*,ŉ,n,Ħ,H,Д,A,Μ,M,ё,e,Ц,U,э,e,“,�,ф,o,у,y,с,c,к,k,Å,�,℞,R,,I,ɳ,n,ʗ,c,▫,�,ѓ,r,ệ,e,ắ,a,ẳ,a,ů,u,Ľ,L,ư,u,·,�,˙,',η,n,ℓ,l,,�,,�,,�,׀,i,ġ,g,Ŵ,W,Δ,A,ﮊ,J,μ,�,Ÿ,�,ĥ,h,β,�,Ь,b,ų,u,є,e,ω,w,Ċ,C,і,i,ł,l,ǿ,o,∫,l,ż,z,ţ,t,æ,�,≈,=,Ł,L,ŋ,n,گ,S,ď,d,ψ,w,σ,o,ģ,g,Ή,H,ΐ,i,ґ,r,κ,k,Ŋ,N,�,\,,/,¬,�,щ,w,ە,o,ם,o,³,�,½,�,İ,I,ľ,l,ĕ,e,Ţ,T,ŝ,s,ŷ,y,ľ,l,ĩ,i,Ô,�,Ś,S,Ĺ,L,а,a,е,e,Ρ,P,Ј,J,Ν,N,ǻ,a,ђ,h,ί,l,Œ,�,¯,�,ā,a,ŵ,w,Â,�,Ã,�,н,H,ˇ,',¸,�,̣,$chr(44),ط,b,Ó,�,Й,N,«,�,ù,�,Ø,�,ê,�)
+  %r = $replace(%r,ا,I,л,n,ы,bl,б,6,ש,w,―,-,Ϊ,I,,`,ŭ,u,ổ,o,Ǿ,�,ẫ,a,ầ,a,,q,Ẃ,W,Ĥ,H,ỏ,o,−,-,,^,ล,a,Ĝ,G,ﺯ,j,ى,s,Ѓ,r,ứ,u,●,�,ύ,u,,0,,7,,",ө,O,ǐ,i,Ǒ,O,Ơ,O,,2,ү,y,,v,А,A,≤,<,≥,>,ẩ,a,,H,٤,e,ﺂ,i,Ќ,K,Ū,U,,;,ă,a,ĸ,k,Ć,C,Ĭ,I,ň,n,Ĩ,I,Ι,I,Ϋ,Y,,J,,X,,$chr(125),,$chr(123),Ξ,E,ˆ,^,,V,,L,γ,y,ﺎ,i,Ώ,o,ỳ,y,Ć,C,Ĭ,I,ĸ,k,Ŷ,y,๛,c,ỡ,o,๓,m,ﺄ,i,פֿ,G,Ŭ,U,Ē,E,Ă,A,÷,�, ,�,‚,�,„,�,ˆ,�,‰,�,ă,a,,x,,=,ق,J,,?,￼,-,◊,o,т,T,Ā,A,קּ,P,Ė,E,Ę,E,ο,o,ϋ,u,‼,!!,ט,u,ﮒ,S,Ч,y,Ґ,r,ě,e,Ę,E,ĺ,I,Λ,a,ο,o,Ú,�,Ř,R,Ư,U,œ,�,,-,—,�,ห,n,ส,a,ฐ,g,Ψ,Y,Ẫ,A,π,n,Ņ,N,�!,o,Ћ,h,ợ,o,ĉ,c,◦,�,ﮎ,S,Ų,U,Е,E,Ѕ,S,۵,o,ي,S,ب,u,ة,o,ئ,s,ļ,l,ı,i,ŗ,r,ж,x,΅,",ώ,w,▪,�,ζ,l,Щ,W,฿,B,ỹ,y,ϊ,i,ť,t,п,n,´,�,ک,s,ﱢ,*,ξ,E,ќ,k,√,v,τ,t,Ð,�,£,�,ñ,�,¥,�,ë,�,å,�,,Y,ǎ,a)
+  %r = $replace(%r,ằ,a, ,�,Ο,O,₪,n,Ậ,A,,�,,�,,�,,�,,�,,�,ờ,o,‍,�,ֱ,�,־,-,הּ,n,ź,z,‌,�,ُ,',๘,c,ฅ,m,,�,,<,▼,v,ﻜ,S,℮,e,ź,z,ậ,a,๑,a,ﬁ,fi,ь,b,ﺒ,.,ﺜ,:,ศ,a,ภ,n,๏,o,ะ,=,צּ,y,ซ,i,‾,�,∂,a,：,:,≠,=,,+,م,r,ồ,o,Ử,U,Л,N,Ӓ,A,Ọ,O,Ẅ,W,Ỵ,Y,ﺚ,u,ﺬ,i,ﺏ,u,Ż,Z,ﮕ,S,ﺳ,w,ﯽ,u,ﺱ,uw,ﻚ,J,ﺔ,a,,!,ễ,e,ل,J,ر,j,ـ,_,ό,o,₫,d,№,no,ữ,u,Ě,E,φ,o,ﻠ,I,ц,u,,�,,N,Њ,H,Έ,E,,~,,U,ạ,a,,1,,4,,3,ỉ,i,Ε,E,Џ,U,ك,J,★,*,,b,,$chr(35),,$,○,o,ю,10,ỵ,y,ẁ,w,қ,k,ٿ,u,♂,o,תּ,n,٥,o,ﮐ,S,ⁿ,n,ﻗ,9,,b,,$chr(35),,$,○,o,ю,10,ị,i,Α,A, ,�,ﻩ,o,ﻍ,E,ن,u,ẽ,e,ث,u,ㅓ,t,ӛ,e,Ә,E,ﻘ,o,۷,v,שׁ,w,ụ,u,Ŏ,O,,�,ự,u,Ｊ,J,ｅ,e,ａ,a,Ｎ,N,（,$chr(40),＠,@,｀,`,．,.,′,',）,$chr(41),▬,-,◄,<,►,>,∑,E,ֻ,$chr(44),‬,|,‎,|,‪,|,‫,|,Ộ,O,И,N,,W,,z)
+  %r = $replace(%r,ס,o,╳,X,٠,�,Ғ,F,υ,u,‏,�,ּ,�,ǔ,u,ผ,w,Ằ,A,Ấ,A,»,�,ﺖ,u,ố,o,ﮓ,S,ở,o,ﺕ,u,ﮔ,S, Ҝ,K,♦,�,‗,_,ﻈ,b,ฬ,w,אּ,x,,-,ข,u,ท,n,Ờ,O,Ặ,A,ử,u,Ễ,E,ਹ,J, ه,o,■,�,ơ,o,,,ң,h,Қ,K,Ҳ,X,ҳ,x,Ҝ,K,ع,E,چ,c,ч,y,Х,X,٦,7,ֽ,.,َ,',ֿ,',׃,:,ọ,o,Җ,X,ی,s,ฬ,w,∙,�,Τ,T,ⓒ,c,ⓐ,a,ⓟ,p,ⓔ,e,ⓣ,t,Ǎ,A,Х,X,ֳ,.,ی,s,Ỉ,I,̉,',,Z,ọ,o,ẹ,e,ҝ,k,ﺖ,u,ố,o,ﮓ,S,ở,o,ﺕ,u,Қ,K,,Z,̕,',├,|,┤,|,أ,I,,,א,x,ặ,a,ǒ,o,Ờ,O,☼,�,ׁ,.,,Z,ฤ,n,⑷,4,⑵,2,⒪,0,เ,i,☻,�,╠,|,╦,n,十,�,ấ,a,,�,З,3,Ẵ,A,Ў,y,Ź,Z,΄,',��,$chr(40),��,$chr(41),ח,n,Ở,O,Ổ,O,์,',�,g,В,B,【,[,】,],ｓ,s,ｍ,m,ｏ,o,ｋ,k,ｗ,w,ｄ,d,Ũ,U,,Q,↨,|,Ẩ,A,Ẽ,E,ָ,�,ธ,s,و,g,з,e,ظ,b,ﺸ,�,Б,b,�-,m,ﻲ,�,پ,u,غ,e,Ẩ,A,ẻ,e,ҹ,y,ฆ,u,ฯ,-,ׂ,�,,-,,�,,�,ת,n,٧,V,Ợ,O,۝,I,۞,O,۩,O)
+  %r = $replace(%r,ﺵ,,Ế,E,�`,�,,,��,$chr(58),�{,$chr(59),�n,.,�o,/,�i,$chr(41),�h,$chr(40),�m,-,₥,M,ءXء,�X�,ả,a,◈,,�f,$chr(38),٨,A,�g,')
+  return %r
+}
+alias rm {
+  return $chr(37) $+ $chr(35) $+ $gettok($1,2,46)
+}
+alias isircop {
+  if (,A, isin $1) { return oui }
+  else { return non }
+}
+alias Profan {
+  if (merde isin $1) { return oui MERDE }
+  if (connar isin $1) { return oui CONNARD }
+  if (conar isin $1) { return oui CONNARD }
+  if (connasse isin $1) { return oui CONNASSE }
+  if (conasse isin $1) { return oui CONNASSE }
+  if (connase isin $1) { return oui CONNASSE }
+  if (connace isin $1) { return oui CONNASSE }
+  if (conace isin $1) { return oui CONNASSE }
+  if (enculé isin $1) { return oui ENCULÉ }
+  if (encule isin $1) { return oui ENCULE }
+  if (pute? iswm $1) { return oui PUTE }
+  if (putte? iswm $1) { return oui PUTE }
+  if (pédé? iswm $1) { return oui PD }
+  if (pede? iswm $1) { return oui PD }
+  if (putain isin $1) { return oui PUTAIN }
+  if (put1 isin $1) { return oui PUTAIN }
+  if (putin == $1) { return oui PUTAIN }
+  if (ptain == $1) { return oui PUTAIN }
+  if (ptin == $1) { return oui PUTAIN }
+  if (ass == $1) { return oui ASS }
+  if (fuck* iswm $1) { return oui FUCK }
+  if (bitch* iswm $1) { return oui BITCH }
+  if (enfoir* iswm $1) { return oui ENFOIRÉ }
+  if (salop* iswm $1) { return oui SALOPE }
+  if (bordel* iswm $1) { return oui BORDEL }
+  if (cock == $1) { return oui COCK }
+  if (suck* iswm $1) { return oui SUCK }
+  if (chier* iswm $1) { return oui CHIER }
+  if (couil* iswm $1) { return oui COUILLE }
+  else { return non }
+}
+alias isbanned {
+  if ((' isin $1) || (; isin $1)) { return oui }
+  if (Sysop isin $1) { return oui }
+  if (Admin isin $1) { return oui }
+  if (Guide_ isin $1) { return oui }
+  if (salope isin $1) { return oui }
+  if (  isin $1) { return oui }
+  if ($chr(35) isin $1) { return oui }
+  if (ρ isin $1) { return oui }
+  if (   isin $1) { return oui }
+
+  if ($chr(1) isin $1) { return oui }
+  if ($chr(2) isin $1) { return oui }
+  if ($chr(3) isin $1) { return oui }
+  if ($chr(22) isin $1) { return oui }
+  if ($chr(31) isin $1) { return oui }
+
+  if ($chr(36) isin $1) { return oui }
+  if ($chr(37) isin $1) { return oui }
+  if ($chr(38) isin $1) { return oui }
+  if ($chr(39) isin $1) { return oui }
+
+  if ($chr(40) isin $1) { return oui }
+  if ($chr(41) isin $1) { return oui }
+  if ($chr(42) isin $1) { return oui }
+
+  if ($chr(43) isin $1) { return oui }
+  if ($chr(44) isin $1) { return oui }
+  if ($chr(46) isin $1) { return oui }
+  if ($chr(47) isin $1) { return oui }
+  if ($chr(58) isin $1) { return oui }
+  if ($chr(59) isin $1) { return oui }
+  if ($chr(60) isin $1) { return oui }
+  if ($chr(61) isin $1) { return oui }
+  ;if ($chr(62) isin $1) { return oui }
+  if ($chr(63) isin $1) { return oui }
+  if ($chr(64) isin $1) { return oui }
+  if ($chr(91) isin $1) { return oui }
+  if ($chr(92) isin $1) { return oui }
+  if ($chr(93) isin $1) { return oui }
+  if ($chr(94) isin $1) { return oui }
+  if ($chr(123) isin $1) { return oui }
+  if ($chr(124) isin $1) { return oui }
+  if ($chr(125) isin $1) { return oui }
+  if ( isin $1) { return oui }
+  if ($len($1) > 40) { return oui }
+  ;if ($len($1) = 10) { return oui }
+  else { return non }
+}
+alias tdetruitroom .timerdetruitroom. $+ $gettok($1,1-2,46) 1 100 detruitroom $1
+alias detruitroom {
+  var %rmname $chr(37) $+ $chr(35) $+ $gettok($1,2,46) 
+  if (e isin $readini(prop.ini,%rmname,modes)) goto close
+  if ((r !isin $readini(prop.ini,%rmname,modes)) && (c !isin $readini(prop.ini,%rmname,modes))) {
+    :close
+    if ($sock(r. $+ $gettok($1,2,46) $+ .*,0) != 0) { halt }
+    else {
+      remini salles.txt $readini(prop.ini,%rmname,CAT) %rmname
+      remini -n PROP.ini %rmname
+      remini access.ini %rmname
+    }
+  }
+  dlistingroom
+}
+on *:sockclose:r.*: {
+  tdetruitroom $sockname
+  var %nps = 1
+  while ($sock(r. $+ $gettok($sockname,2,46) $+ .*,0) >= %nps) { 
+    if (' == $left($gettok($sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps),3,46),1)) {
+      sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ $replace(%ident. [ $+ [ $sockname ] ],@ug,@ $+ $sock($sockname).ip) PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+    }
+    elseif (($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == .) || ($left($gettok(%st. [ $+ [ $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) ] ],4,44),1) == @)) {
+      sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+    }
+    elseif (x !isin $readini(prop.ini,$chr(37) $+ $chr(35) $+ $gettok($sockname,2,46),modes)) {
+      sockwrite -tn $sock(r. $+ $gettok($sockname,2,46) $+ .*,%nps) : $+ %ident. [ $+ [ $sockname ] ] PART $chr(37) $+ $chr(35) $+ $gettok($sockname,2,46)
+    }
+    inc %nps
+  }
+  unset %nick. [ $+ [ $sockname ] ] 
+  unset %pro. [ $+ [ $sockname ] ]
+  unset %ident. [ $+ [ $sockname ] ]
+  unset %st. [ $+ [ $sockname ] ]
+  unset %irc5. [ $+ [ $sockname ] ]
+  echo - $sockname s'est d�co  
+  .timer $+ $sockname 1 1 dlistingpeole
+}
+on *:sockclose:k.*: {
+  echo - $sockname s'est d�co  
+  .timer $+ $sockname 1 1 dlistingpeole
+}
+#4 end
